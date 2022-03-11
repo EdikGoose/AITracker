@@ -29,6 +29,14 @@ class Coordinate {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Coordinate that = (Coordinate) o;
+        return X == that.X && Y == that.Y;
+    }
+
+    @Override
     public String toString() {
         return "X=" + X +", Y=" + Y;
     }
@@ -63,7 +71,16 @@ class IO {
 }
 
 enum TypeOfNode{
-    DEFAULT, START, DANGER, INSPECTOR, BOOK, CLOAK, EXIT;
+    DEFAULT(0), START(0), BOOK(0), CLOAK(0), EXIT(0), DANGER(1), INSPECTOR(2);
+    private final int danger;
+
+    TypeOfNode(int danger) {
+        this.danger = danger;
+    }
+
+    public int getDanger() {
+        return danger;
+    }
 
     static String toString(TypeOfNode typeOfNode) {
         switch (typeOfNode) {
@@ -81,6 +98,7 @@ enum TypeOfNode{
 
 class Node {
     private TypeOfNode typeOfNode;
+    private Boolean isPath = false;
 
     public Node(TypeOfNode typeOfNode) {
         this.typeOfNode = typeOfNode;
@@ -88,6 +106,14 @@ class Node {
 
     public TypeOfNode getTypeOfNode() {
         return typeOfNode;
+    }
+
+    public Boolean isPath() {
+        return isPath;
+    }
+
+    public void setIsPath(Boolean path) {
+        isPath = path;
     }
 
     public void setTypeOfNode(TypeOfNode typeOfNode) {
@@ -121,6 +147,90 @@ class Grid {
         grid[exitPosition.getX()][exitPosition.getY()] = new Node(TypeOfNode.EXIT);
     }
 
+    private boolean isSafe(Coordinate coordinate, boolean isInvisible) {
+        if (isInvisible) {
+            return (coordinate.getY() >= 0 && coordinate.getY() < grid.length) &&
+                    (coordinate.getX() >= 0 && coordinate.getX() < grid.length) &&
+                    (grid[coordinate.getX()][coordinate.getY()].getTypeOfNode().getDanger() <= 1);
+        }
+        return (coordinate.getY() >= 0 && coordinate.getY() < grid.length) &&
+                (coordinate.getX() >= 0 && coordinate.getX() < grid.length) &&
+                (grid[coordinate.getX()][coordinate.getY()].getTypeOfNode().getDanger() == 0);
+
+    }
+
+    public void findPathBacktracking(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, String nameOfPath) {
+        if (!findPathBacktrackingRecursive(startPosition, endPosition, isInvisible)) {
+            System.out.println("No path");
+            return;
+        }
+
+        System.out.println("The path " + nameOfPath + ": ");
+        System.out.println(this);
+
+        for (Node[] row : grid) {
+            for (Node node : row) {
+                node.setIsPath(false);
+            }
+        }
+    }
+
+    private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible) {
+
+        if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
+            grid[startPosition.getX()][startPosition.getY()].setIsPath(true);
+            return true;
+        }
+
+        if (isSafe(startPosition, isInvisible)) {
+            Node nodeInStartPosition = grid[startPosition.getX()][startPosition.getY()];
+            if (nodeInStartPosition.isPath()) {
+                return false;
+            }
+
+            nodeInStartPosition.setIsPath(true);
+
+            // TODO : сделай приоретет операций, а то Гарри как ошалевший бегает
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX() + 1, startPosition.getY() + 1), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX() + 1, startPosition.getY()), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX(), startPosition.getY() + 1), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX() - 1, startPosition.getY() + 1), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX() - 1, startPosition.getY()), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX() + 1, startPosition.getY() - 1), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX(), startPosition.getY() - 1), endPosition, isInvisible)) {
+                return true;
+            }
+
+            if (findPathBacktrackingRecursive(new Coordinate(startPosition.getX() - 1, startPosition.getY() - 1), endPosition, isInvisible)) {
+                return true;
+            }
+
+            nodeInStartPosition.setIsPath(false);
+            return false;
+        }
+
+        return false;
+    }
+
     public void addInspector(Coordinate coordinate, int radius) {
         for (int row = coordinate.getX() - radius; row <= coordinate.getX() + radius; row++) {
             for (int column = coordinate.getY() - radius; column <= coordinate.getY() + radius; column++) {
@@ -137,7 +247,12 @@ class Grid {
 
         for (int row = grid.length - 1; row >= 0; row--) {
             for (int column = 0; column < grid.length; column++) {
-                gridString.append(TypeOfNode.toString(grid[column][row].getTypeOfNode())).append(" ");
+                if (grid[column][row].isPath() && grid[column][row].getTypeOfNode() != TypeOfNode.BOOK) {
+                    gridString.append("P").append(" ");
+                }
+                else {
+                    gridString.append(TypeOfNode.toString(grid[column][row].getTypeOfNode())).append(" ");
+                }
             }
             gridString.append("\n");
         }
@@ -146,9 +261,10 @@ class Grid {
     }
 }
 
-
 public class Main {
     static int sizeOfGrid = 9;
+
+
 
     public static void main(String[] args) {
         ArrayList<Coordinate> coordinates = IO.readCoordinates();
@@ -161,5 +277,8 @@ public class Main {
 
         Grid grid = new Grid(sizeOfGrid, coordinates.get(0), coordinates.get(1), coordinates.get(2), coordinates.get(3), coordinates.get(4), coordinates.get(5));
         System.out.println(grid);
+
+        grid.findPathBacktracking(coordinates.get(0), coordinates.get(3), false,  "from Harry to Book");
+        grid.findPathBacktracking(coordinates.get(3), coordinates.get(5), false,  "from Book to Exit");
     }
 }
