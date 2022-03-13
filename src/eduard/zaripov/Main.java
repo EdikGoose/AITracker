@@ -64,9 +64,6 @@ class IO {
         return Integer.parseInt(scanner.nextLine());
     }
 
-    static void viewErrorInputMessage() {
-        throw new IllegalArgumentException("Error input");
-    }
 
     static void viewGameOverMessage() {
         System.out.println("The Harry is captured by a guard! Game over.");
@@ -143,6 +140,15 @@ class Node {
 
     public void setIsDetectedAsDanger(Boolean detectedAsDanger) {
         isDetectedAsDanger = detectedAsDanger;
+    }
+
+    public boolean containsCloak() {
+        for (TypeOfNode typeOfNode : typesOfNode) {
+            if (typeOfNode == TypeOfNode.CLOAK) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int getG() {
@@ -234,7 +240,7 @@ class Grid {
             grid[exitPosition.getX()][exitPosition.getY()].addTypeOfNode(TypeOfNode.EXIT);
         }
         else {
-            IO.viewErrorInputMessage();
+            throw new IllegalArgumentException("Illegal map configuration");
         }
 
         addInspector(filthPosition, radiusOfStrongInspector);
@@ -262,7 +268,7 @@ class Grid {
                     continue;
                 }
                 if (grid[row][column].containsCrucialElements()) {
-                    IO.viewErrorInputMessage();
+                    throw new IllegalArgumentException("Illegal map configuration");
                 }
                 if (!grid[row][column].getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
                     grid[row][column].addTypeOfNode(TypeOfNode.DANGER);
@@ -270,7 +276,7 @@ class Grid {
             }
         }
         if(getNode(coordinate).containsCrucialElements()) {
-            IO.viewErrorInputMessage();
+            throw new IllegalArgumentException("Illegal map configuration");
         }
         grid[coordinate.getX()][coordinate.getY()].getTypesOfNode().remove(TypeOfNode.DANGER);
         grid[coordinate.getX()][coordinate.getY()].addTypeOfNode(TypeOfNode.INSPECTOR);
@@ -571,7 +577,7 @@ class Grid {
 }
 
 class RandomCoordinates{
-    static int upperBound = Main.sizeOfGrid;
+    static int upperBound = Solution.sizeOfGrid;
     private static final Random random = new Random();
 
     public static int getRandomMode() {
@@ -593,12 +599,116 @@ class RandomCoordinates{
     }
 }
 
-public class Main {
+class Solution {
     static int sizeOfGrid = 9;
     static int filchRadius = 2;
     static int catRadius = 1;
 
+    enum TypeOfSearch {
+        ASTAR, BACKTRACKING;
+    }
+
+    Grid grid;
+    int mode;
+    Coordinate harryPosition;
+    Coordinate cloakPosition;
+    Coordinate bookPosition;
+    Coordinate exitPosition;
+
+    public Solution(ArrayList<Coordinate> inputCoordinates, int mode) {
+        this.harryPosition = inputCoordinates.get(0);
+        this.bookPosition = inputCoordinates.get(3);
+        this.cloakPosition = inputCoordinates.get(4);
+        this.exitPosition = inputCoordinates.get(5);
+        this.grid = new Grid(sizeOfGrid, filchRadius, catRadius, harryPosition, inputCoordinates.get(1), inputCoordinates.get(2), bookPosition, cloakPosition, exitPosition);
+        this.mode = mode;
+    }
+
+    public ArrayList<Coordinate> findPath(TypeOfSearch typeOfSearch) {
+        ArrayList<ArrayList<Coordinate>> allScenarios = getAllPossibleScenarios(harryPosition, cloakPosition, bookPosition, exitPosition);
+
+        ArrayList<Coordinate> minPath = null;
+        for(ArrayList<Coordinate> scenario : allScenarios) {
+            ArrayList<Coordinate> path = calculatePath(typeOfSearch, grid, mode, scenario);
+            if (minPath == null && path != null) {
+                minPath = path;
+            }
+            if (path != null && minPath.size() < path.size()) {
+                minPath = path;
+            }
+        }
+
+        return minPath;
+    }
+
+    private ArrayList<ArrayList<Coordinate>> getAllPossibleScenarios(Coordinate harryPosition, Coordinate cloakPosition, Coordinate bookPosition, Coordinate exitPosition) {
+        ArrayList<ArrayList<Coordinate>> allScenarios = new ArrayList<>();
+
+        ArrayList<Coordinate> currentScenario = new ArrayList<>();
+        currentScenario.add(harryPosition);
+        currentScenario.add(bookPosition);
+        currentScenario.add(exitPosition);
+        allScenarios.add(currentScenario);
+
+        currentScenario.add(2, cloakPosition);
+        allScenarios.add(currentScenario);
+
+        currentScenario.remove(cloakPosition);
+        currentScenario.add(1, cloakPosition);
+        allScenarios.add(currentScenario);
+
+        return allScenarios;
+    }
+
+    private ArrayList<Coordinate> calculatePath(TypeOfSearch typeOfSearch, Grid grid, int mode, ArrayList<Coordinate> scenario) {
+        boolean isCloakInPath = false;
+        ArrayList<Coordinate> path = new ArrayList<>();
+
+        for (int i = 0; i < scenario.size() - 1; i++) {
+            if (!isCloakInPath && grid.getNode(scenario.get(i)).containsCloak()) {
+                isCloakInPath = true;
+            }
+            ArrayList<Coordinate> currentPath;
+            switch (typeOfSearch) {
+                case BACKTRACKING:
+                    currentPath = grid.findPathBacktracking(scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
+                    break;
+                case ASTAR:
+                    currentPath = grid.findPathAStar(scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
+                    break;
+                default:
+                    currentPath = grid.findPathAStar(scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
+            }
+
+            if (currentPath == null) {
+                return null;
+            }
+
+            path.addAll(currentPath);
+        }
+
+        return path;
+    }
+
+    public String toString(ArrayList<Coordinate> path) {
+        return grid.toString(path);
+    }
+}
+
+public class Main {
     public static void main(String[] args) {
+        //int inputMode = IO.readInputMode();
+
+        ArrayList<Coordinate> coordinates = IO.readCoordinates();
+        int mode = IO.readMode();
+
+        Solution solution = new Solution(coordinates, mode);
+
+        ArrayList<Coordinate> path1 = solution.findPath(Solution.TypeOfSearch.BACKTRACKING);
+
+        IO.printString(solution.toString(path1));
+
+        /*
         int inputMode;
 
         if(args.length > 0) {
@@ -708,6 +818,8 @@ public class Main {
             String[] arr = new String[1];
             arr[0] = "2";
             main(arr);
+
         }
+         */
     }
 }
