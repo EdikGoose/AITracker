@@ -1,9 +1,6 @@
 package eduard.zaripov;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.Scanner;
+import java.util.*;
 
 class Coordinate {
     private int X;
@@ -111,6 +108,10 @@ class Node {
     private Boolean isPath = false;
     private Boolean isDetectedAsDanger = false;
 
+    private int g = -1;
+    private double h = -1;
+    private Coordinate previous = null;
+
     public Node(TypeOfNode typeOfNode) {
         this.typeOfNode = typeOfNode;
     }
@@ -137,6 +138,34 @@ class Node {
 
     public void setIsDetectedAsDanger(Boolean detectedAsDanger) {
         isDetectedAsDanger = detectedAsDanger;
+    }
+
+    public int getG() {
+        return g;
+    }
+
+    public void setG(int g) {
+        this.g = g;
+    }
+
+    public double getH() {
+        return h;
+    }
+
+    public void setH(double h) {
+        this.h = h;
+    }
+
+    public double getF() {
+        return g+h;
+    }
+
+    public Coordinate getPrevious() {
+        return previous;
+    }
+
+    public void setPrevious(Coordinate previous) {
+        this.previous = previous;
     }
 }
 
@@ -203,15 +232,58 @@ class Grid {
         return path;
     }
 
+    private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) {
+        if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
+            path.add(startPosition);
+            grid[startPosition.getX()][startPosition.getY()].setIsPath(true);
+            return true;
+        }
+
+        if (isSafe(startPosition, isInvisible)) {
+            if (mode == 2) {
+                detectDangerNodes(startPosition);
+            }
+
+            Node nodeInStartPosition = grid[startPosition.getX()][startPosition.getY()];
+            if (nodeInStartPosition.isPath()) {
+                return false;
+            }
+
+            path.add(startPosition);
+            nodeInStartPosition.setIsPath(true);
+
+            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition);
+
+            for (Coordinate next : nextCoordinateToStep) {
+                if (findPathBacktrackingRecursive(next, endPosition, isInvisible, mode)) {
+                    return true;
+                }
+            }
+
+            path.remove(path.size() - 1);
+            nodeInStartPosition.setIsPath(false);
+            return false;
+        }
+
+        if(mode == 2 && !grid[startPosition.getX()][startPosition.getY()].isDetectedAsDanger()) {
+            IO.printString("The Harry is captured by a guard!");
+            path.add(startPosition);
+            IO.printString(toStringWithPath(path));
+            System.exit(1);
+        }
+
+        return false;
+    }
+
     private void clearPaths() {
         for (Node[] row : grid) {
             for (Node node : row) {
                 node.setIsPath(false);
+                node.setIsDetectedAsDanger(false);
             }
         }
         path.clear();
     }
-
 
     private LinkedList<Coordinate> getOperationPriority(Coordinate startPosition, Coordinate endPosition) {
         LinkedList<Coordinate> priority = new LinkedList<>();
@@ -286,65 +358,103 @@ class Grid {
         }
     }
 
-    private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) {
-        if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
-            path.add(startPosition);
-            grid[startPosition.getX()][startPosition.getY()].setIsPath(true);
-            return true;
-        }
+    private double getHeuristic(Coordinate startPosition, Coordinate endPosition) {
+        return Math.sqrt(Math.pow(startPosition.getX() - endPosition.getX(), 2) + Math.pow(startPosition.getY() - endPosition.getY(),2));
+    }
 
-        if (isSafe(startPosition, isInvisible)) {
+    public ArrayList<Coordinate> findPathAStar(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) {
+        clearPaths();
+        LinkedList<Coordinate> open = new LinkedList<>();
+        ArrayList<Coordinate> closed = new ArrayList<>();
+        getNode(startPosition).setG(0);
+        getNode(startPosition).setH(getHeuristic(startPosition, endPosition));
+        getNode(startPosition).setPrevious(null);
+        open.add(startPosition);
+        ArrayList<Coordinate> path = new ArrayList<>();
+
+        while (!open.isEmpty()) {
+            Coordinate current = open.peek();
+            for (Coordinate coordinate : open) {
+                if (getNode(coordinate).getF() < getNode(current).getF()) {
+                    current = coordinate;
+                }
+            }
+            open.remove(current);
+            closed.add(current);
+
             if (mode == 2) {
                 detectDangerNodes(startPosition);
             }
 
-            Node nodeInStartPosition = grid[startPosition.getX()][startPosition.getY()];
-            if (nodeInStartPosition.isPath()) {
-                return false;
-            }
+            if (isSafe(current, isInvisible)) {
+                if (current.equals(endPosition)) {
+                    while (getNode(current).getPrevious() != null) {
+                        path.add(current);
+                        current = getNode(current).getPrevious();
+                    }
+                    path.add(current);
+                    Collections.reverse(path);
+                    return path;
+                }
 
-            path.add(startPosition);
-            nodeInStartPosition.setIsPath(true);
+                ArrayList<Coordinate> neighbors = getNeighbors(current, isInvisible);
+                for (Coordinate neighbor : neighbors) {
+                    if (closed.contains(neighbor)) {
+                        continue;
+                    }
 
-            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition);
-
-            for (Coordinate next : nextCoordinateToStep) {
-                 if (findPathBacktrackingRecursive(next, endPosition, isInvisible, mode)) {
-                    return true;
+                    if (open.contains(neighbor)) {
+                        Node neighborNode = getNode(open.get(open.indexOf(neighbor)));
+                        if (getNode(current).getG() + 1 < neighborNode.getG()) {
+                            neighborNode.setG(getNode(current).getG() + 1);
+                            neighborNode.setPrevious(current);
+                        }
+                    } else {
+                        Node neighborNode = getNode(neighbor);
+                        neighborNode.setG(getNode(current).getG() + 1);
+                        neighborNode.setH(getHeuristic(neighbor, endPosition));
+                        neighborNode.setPrevious(current);
+                        open.add(neighbor);
+                    }
                 }
             }
-
-            path.remove(path.size() - 1);
-            nodeInStartPosition.setIsPath(false);
-            return false;
-        }
-
-        if(mode == 2 && !grid[startPosition.getX()][startPosition.getY()].isDetectedAsDanger()) {
-            System.out.println("The Harry is captured by a guard!");
-            System.exit(1);
-        }
-
-        return false;
-    }
-
-    public int getLengthOfPath() {
-        int length = 0;
-        for (Node[] row : grid) {
-            for (Node node : row) {
-                if (node.isPath()) {
-                    length++;
+            else {
+                if (mode == 2 && !getNode(current).isDetectedAsDanger()) {
+                    IO.printString("The Harry is captured by a guard!");
+                    System.exit(0);
                 }
             }
         }
-        return length;
+        return null;
     }
 
+    public ArrayList<Coordinate> getNeighbors(Coordinate coordinate, boolean isInvisible) {
+        ArrayList<Coordinate> neighbors = new ArrayList<>();
+
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                if (i == 0 && j == 0) {
+                    continue;
+                }
+
+                Coordinate neighbor = new Coordinate(coordinate.getX() + i, coordinate.getY() + j);
+                if ((neighbor.getY() >= 0 && neighbor.getY() < grid.length) && (neighbor.getX() >= 0 && neighbor.getX() < grid.length)) {
+                    neighbors.add(neighbor);
+                }
+            }
+        }
+
+        return neighbors;
+    }
+
+    public Node getNode(Coordinate coordinate) {
+        return grid[coordinate.getX()][coordinate.getY()];
+    }
 
     @Override
     public String toString() {
         final String ANSI_RED = "\u001B[31m";
         final String ANSI_RESET = "\u001B[0m";
-        final String ANSI_GREEN = "\u001B[32m";
         final String ANSI_WHITE = "\u001B[37m";
         StringBuilder gridString = new StringBuilder();
 
@@ -411,25 +521,39 @@ public class Main {
     public static void main(String[] args) {
         ArrayList<Coordinate> coordinates = IO.readCoordinates();
         int mode = IO.readMode();
-        if (mode == 1) {
 
-        }
         Grid grid = new Grid(sizeOfGrid, filchRadius, catRadius, coordinates.get(0), coordinates.get(1), coordinates.get(2), coordinates.get(3), coordinates.get(4), coordinates.get(5));
         IO.printString("Initial grid: ");
         IO.printString(grid.toString());
 
         IO.newLine();
 
-        ArrayList<Coordinate> pathHarryToCloak = grid.findPathBacktracking(coordinates.get(0), coordinates.get(4), false, mode);
-        IO.printString(grid.toStringWithPath(pathHarryToCloak));
-        IO.newLine();
-        ArrayList<Coordinate> pathCloakToBook = grid.findPathBacktracking(coordinates.get(4), coordinates.get(3), true, mode);
-        IO.printString(grid.toStringWithPath(pathCloakToBook));
-        if (pathHarryToCloak == null || pathCloakToBook == null) {
-
+        ArrayList<Coordinate> pathHarryToCloak = grid.findPathAStar(coordinates.get(0), coordinates.get(4), false, mode);
+        if (pathHarryToCloak == null) {
+            IO.printString("No path");
         }
-        int overallPathLength = pathHarryToCloak.size() + pathCloakToBook.size();
-        IO.printString("The path length: " + overallPathLength);
+        else {
+            IO.printString(grid.toStringWithPath(pathHarryToCloak));
+        }
+
+        IO.newLine();
+
+        ArrayList<Coordinate> pathCloakToBook = grid.findPathAStar(coordinates.get(4), coordinates.get(3), false, mode);
+        if (pathCloakToBook == null) {
+            IO.printString("No path");
+        }
+        else {
+            IO.printString(grid.toStringWithPath(pathCloakToBook));
+        }
+
+
+
+//        ArrayList<Coordinate> pathHarryToCloak = grid.findPathBacktracking(coordinates.get(0), coordinates.get(4), false, mode);
+//        IO.printString(grid.toStringWithPath(pathHarryToCloak));
+//        IO.newLine();
+//        ArrayList<Coordinate> pathCloakToBook = grid.findPathBacktracking(coordinates.get(4), coordinates.get(3), true, mode);
+//        IO.printString(grid.toStringWithPath(pathCloakToBook));
+
 
         IO.newLine();
 
