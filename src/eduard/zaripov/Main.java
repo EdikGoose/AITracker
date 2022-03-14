@@ -576,11 +576,11 @@ class Grid {
     }
 }
 
-class RandomCoordinates{
+class RandomInput {
     static int upperBound = Solution.sizeOfGrid;
     private static final Random random = new Random();
 
-    public static int getRandomMode() {
+    public static int getRandomInputMode() {
         return random.nextInt(2) + 1;
     }
 
@@ -645,10 +645,8 @@ class Solution {
                 if (overallLength < minLength) {
                     minPath = path;
                 }
-
             }
         }
-
         return minPath;
     }
 
@@ -689,14 +687,14 @@ class Solution {
         currentScenario.add(harryPosition);
         currentScenario.add(bookPosition);
         currentScenario.add(exitPosition);
-        allScenarios.add(currentScenario);
+        allScenarios.add(new ArrayList<>(currentScenario));
 
         currentScenario.add(2, cloakPosition);
-        allScenarios.add(currentScenario);
+        allScenarios.add(new ArrayList<>(currentScenario));
 
         currentScenario.remove(cloakPosition);
         currentScenario.add(1, cloakPosition);
-        allScenarios.add(currentScenario);
+        allScenarios.add(new ArrayList<>(currentScenario));
 
         return allScenarios;
     }
