@@ -624,45 +624,37 @@ class Solution {
         this.mode = mode;
     }
 
-    public ArrayList<Coordinate> findPath(TypeOfSearch typeOfSearch) {
+    public ArrayList<ArrayList<Coordinate>> findPath(TypeOfSearch typeOfSearch) {
         ArrayList<ArrayList<Coordinate>> allScenarios = getAllPossibleScenarios(harryPosition, cloakPosition, bookPosition, exitPosition);
 
-        ArrayList<Coordinate> minPath = null;
+        ArrayList<ArrayList<Coordinate>> minPath = null;
+        int minLength = Integer.MAX_VALUE;
         for(ArrayList<Coordinate> scenario : allScenarios) {
-            ArrayList<Coordinate> path = calculatePath(typeOfSearch, grid, mode, scenario);
-            if (minPath == null && path != null) {
-                minPath = path;
-            }
-            if (path != null && minPath.size() < path.size()) {
-                minPath = path;
+            ArrayList<ArrayList<Coordinate>> path = calculatePath(typeOfSearch, grid, mode, scenario);
+            if (path != null) {
+                int overallLength = 0;
+                for (ArrayList<Coordinate> currentPath : path) {
+                    overallLength += currentPath.size();
+                }
+
+                if (minPath == null) {
+                    minPath = path;
+                    minLength = overallLength;
+                }
+
+                if (overallLength < minLength) {
+                    minPath = path;
+                }
+
             }
         }
 
         return minPath;
     }
 
-    private ArrayList<ArrayList<Coordinate>> getAllPossibleScenarios(Coordinate harryPosition, Coordinate cloakPosition, Coordinate bookPosition, Coordinate exitPosition) {
-        ArrayList<ArrayList<Coordinate>> allScenarios = new ArrayList<>();
-
-        ArrayList<Coordinate> currentScenario = new ArrayList<>();
-        currentScenario.add(harryPosition);
-        currentScenario.add(bookPosition);
-        currentScenario.add(exitPosition);
-        allScenarios.add(currentScenario);
-
-        currentScenario.add(2, cloakPosition);
-        allScenarios.add(currentScenario);
-
-        currentScenario.remove(cloakPosition);
-        currentScenario.add(1, cloakPosition);
-        allScenarios.add(currentScenario);
-
-        return allScenarios;
-    }
-
-    private ArrayList<Coordinate> calculatePath(TypeOfSearch typeOfSearch, Grid grid, int mode, ArrayList<Coordinate> scenario) {
+    private ArrayList<ArrayList<Coordinate>> calculatePath(TypeOfSearch typeOfSearch, Grid grid, int mode, ArrayList<Coordinate> scenario) {
         boolean isCloakInPath = false;
-        ArrayList<Coordinate> path = new ArrayList<>();
+        ArrayList<ArrayList<Coordinate>> path = new ArrayList<>();
 
         for (int i = 0; i < scenario.size() - 1; i++) {
             if (!isCloakInPath && grid.getNode(scenario.get(i)).containsCloak()) {
@@ -684,14 +676,44 @@ class Solution {
                 return null;
             }
 
-            path.addAll(currentPath);
+            path.add(currentPath);
         }
 
         return path;
     }
 
-    public String toString(ArrayList<Coordinate> path) {
-        return grid.toString(path);
+    private ArrayList<ArrayList<Coordinate>> getAllPossibleScenarios(Coordinate harryPosition, Coordinate cloakPosition, Coordinate bookPosition, Coordinate exitPosition) {
+        ArrayList<ArrayList<Coordinate>> allScenarios = new ArrayList<>();
+
+        ArrayList<Coordinate> currentScenario = new ArrayList<>();
+        currentScenario.add(harryPosition);
+        currentScenario.add(bookPosition);
+        currentScenario.add(exitPosition);
+        allScenarios.add(currentScenario);
+
+        currentScenario.add(2, cloakPosition);
+        allScenarios.add(currentScenario);
+
+        currentScenario.remove(cloakPosition);
+        currentScenario.add(1, cloakPosition);
+        allScenarios.add(currentScenario);
+
+        return allScenarios;
+    }
+
+
+    public String toString(ArrayList<ArrayList<Coordinate>> path) {
+        StringBuilder output = new StringBuilder();
+
+        for (ArrayList<Coordinate> currentPath : path) {
+            String start = grid.getNode(currentPath.get(0)).toString();
+            String end = grid.getNode(currentPath.get(currentPath.size() - 1)).toString();
+            output.append("Path from ").append(start).append(" to ").append(end).append(": \n");
+
+            output.append(grid.toString(currentPath)).append("\n");
+        }
+
+        return output.toString();
     }
 }
 
@@ -704,7 +726,7 @@ public class Main {
 
         Solution solution = new Solution(coordinates, mode);
 
-        ArrayList<Coordinate> path1 = solution.findPath(Solution.TypeOfSearch.BACKTRACKING);
+        ArrayList<ArrayList<Coordinate>> path1 = solution.findPath(Solution.TypeOfSearch.BACKTRACKING);
 
         IO.printString(solution.toString(path1));
 
