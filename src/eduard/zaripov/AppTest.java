@@ -82,6 +82,34 @@ public class AppTest {
                 "Wrong!");
     }
 
+    @Test
+    void testBFS() {
+        ArrayList<Coordinate> inputCoordinates = IO.parseCoordinates("[0,0] [4,2] [2,7] [7,4] [0,8] [1,4]");
+        int mode = 1;
+        Solution solution = new Solution(inputCoordinates, mode);
+        try {
+            long start = System.currentTimeMillis();
+            ArrayList<ArrayList<Coordinate>> path2 = solution.findPathBFS(new BFS());
+            long end = System.currentTimeMillis();
+            System.out.println("Elapsed Time in milli seconds: "+ (end-start));
+            System.out.println(solution.toString(path2));
+
+            int length = 0;
+            for (ArrayList<Coordinate> currentPath : path2) {
+                length += currentPath.size();
+                length--;
+            }
+
+            assertEquals(length, 19,
+                    "Wrong!");
+        }
+        catch (HarryIsCapturedException e) {
+            System.out.println(e.getMessage());
+        }
+
+
+    }
+
 
     @Test
     void testMode2() {
