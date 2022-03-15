@@ -76,7 +76,7 @@ interface FindPathInterface {
         }
     }
 
-    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException;
+    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException;
 
     default boolean isSafe(Board board, Coordinate coordinate, boolean isInvisible) {
         if (isInvisible) {
@@ -132,10 +132,13 @@ interface FindPathInterface {
 }
 
 class Backtracking implements FindPathInterface {
+    private ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
     @Override
-    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException {
         ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
-        ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
+        if (updateDetection) {
+            detectedDangerNodes = new ArrayList<>();
+        }
         for (int row = 0; row < board.size(); row++) {
             cellsInfo.add(new ArrayList<>());
             for (int column = 0; column < board.size(); column++) {
@@ -240,10 +243,14 @@ class Backtracking implements FindPathInterface {
 }
 
 class AStar implements FindPathInterface {
+    TreeSet<Coordinate> detectedDangerNodes = new TreeSet<>();
+
     @Override
-    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException {
         ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
-        ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
+        if (updateDetection) {
+            detectedDangerNodes = new TreeSet<>();
+        }
         for (int row = 0; row < board.size(); row++) {
             cellsInfo.add(new ArrayList<>());
             for (int column = 0; column < board.size(); column++) {
@@ -270,8 +277,9 @@ class AStar implements FindPathInterface {
             closed.add(current);
 
             if (mode == 2) {
-                detectedDangerNodes.addAll(detectDangerNodes(board, startPosition));
+                detectedDangerNodes.addAll(detectDangerNodes(board, current));
             }
+
 
             if (isSafe(board, current, isInvisible)) {
                 if (current.equals(endPosition)) {
@@ -334,7 +342,7 @@ class AStar implements FindPathInterface {
 }
 
 
-class Coordinate {
+class Coordinate implements Comparable{
     private final int X;
     private final int Y;
 
@@ -371,6 +379,14 @@ class Coordinate {
 
         return new Coordinate(X, Y);
     }
+
+    @Override
+    public int compareTo(Object o) {
+        Coordinate coordinateToCompare = (Coordinate) o;
+        return Integer.compare(getX()*getY(), coordinateToCompare.getX()*coordinateToCompare.getY());
+    }
+
+
 }
 
 class IO {
@@ -555,15 +571,12 @@ class Board{
                     continue;
                 }
                 if (getCell(currentCoordinate).containsCrucialElements()) {
-                    throw new IllegalInputCoordinate(getCell(coordinate).getTypesOfNode().first(), TypeOfNode.DANGER);
+                    throw new IllegalInputCoordinate(getCell(currentCoordinate).getTypesOfNode().first(), TypeOfNode.DANGER);
                 }
-                if (!getCell(currentCoordinate).getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
+                else if (!getCell(currentCoordinate).getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
                     getCell(currentCoordinate).addTypeOfNode(TypeOfNode.DANGER);
                 }
             }
-        }
-        if(getCell(coordinate).containsCrucialElements()) {
-            throw new IllegalInputCoordinate(getCell(coordinate).getTypesOfNode().first(), TypeOfNode.INSPECTOR);
         }
         getCell(coordinate).getTypesOfNode().remove(TypeOfNode.DANGER);
         getCell(coordinate).addTypeOfNode(TypeOfNode.INSPECTOR);
@@ -770,13 +783,18 @@ class Solution {
         boolean isCloakInPath = false;
         ArrayList<ArrayList<Coordinate>> path = new ArrayList<>();
 
-        for (int i = 0; i < scenario.size() - 1; i++) {
-            if (!isCloakInPath && board.getCell(scenario.get(i)).containsCloak()) {
+        for (int idx = 0; idx < scenario.size() - 1; idx++) {
+            if (!isCloakInPath && board.getCell(scenario.get(idx)).containsCloak()) {
                 isCloakInPath = true;
             }
-            ArrayList<Coordinate> currentPath;
 
-            currentPath  = typeOfSearch.findPath(board, scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
+            ArrayList<Coordinate> currentPath;
+            if (idx == 0) {
+                currentPath = typeOfSearch.findPath(board, scenario.get(idx), scenario.get(idx + 1), isCloakInPath, mode, true);
+            }
+            else {
+                currentPath = typeOfSearch.findPath(board, scenario.get(idx), scenario.get(idx + 1), isCloakInPath, mode, false);
+            }
 
             if (currentPath == null) {
                 return null;

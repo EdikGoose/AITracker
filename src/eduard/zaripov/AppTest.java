@@ -64,7 +64,7 @@ public class AppTest {
     }
 
     @Test
-    void testBacktracking() {
+    void testBacktracking1() {
         ArrayList<Coordinate> inputCoordinates = IO.parseCoordinates("[0,0] [4,2] [5,6] [7,1] [8,2] [8,1]");
         int mode = 1;
         Solution solution = new Solution(inputCoordinates, mode);
@@ -79,6 +79,26 @@ public class AppTest {
         }
 
         assertEquals(length, 19,
+                "Wrong!");
+    }
+
+
+    @Test
+    void testMode2() {
+        ArrayList<Coordinate> inputCoordinates = IO.parseCoordinates("[6,6] [4,2] [2,7] [5,5] [7,6] [7,0]");
+        int mode = 2;
+        Solution solution = new Solution(inputCoordinates, mode);
+        ArrayList<ArrayList<Coordinate>> path2 = solution.findPath(new AStar());
+
+        System.out.println(solution.toString(path2));
+
+        int length = 0;
+        for (ArrayList<Coordinate> currentPath : path2) {
+            length += currentPath.size();
+            length--;
+        }
+
+        assertEquals(length, 9,
                 "Wrong!");
     }
 
