@@ -35,66 +35,143 @@ class HarryIsCapturedException extends Exception {
     }
 }
 
-/*
-interface findPathInterface{
-    ArrayList<Coordinate> findPath(Grid grid, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode);
 
-    default boolean isSafe(Grid grid, Coordinate coordinate, boolean isInvisible) {
-        if (isInvisible) {
-            return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
-                    (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
-                    (!grid.getNode(coordinate).isInspector());
+interface FindPathInterface {
+    class Node {
+        private int g = -1;
+        private double h = -1;
+        private Coordinate previous = null;
+        private Boolean isPath = false;
+
+        public int getG() {
+            return g;
         }
-        return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
-                (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
-                (!grid.getNode(coordinate).isDangerOrInspector());
+
+        public void setG(int g) {
+            this.g = g;
+        }
+
+        public void setH(double h) {
+            this.h = h;
+        }
+
+        public Coordinate getPrevious() {
+            return previous;
+        }
+
+        public void setPrevious(Coordinate previous) {
+            this.previous = previous;
+        }
+
+        public Boolean isPath() {
+            return isPath;
+        }
+
+        public void setIsPath(Boolean path) {
+            isPath = path;
+        }
+
+        public double getF() {
+            return g + h;
+        }
     }
 
-    default void clearPaths(Grid grid) {
-        for (Node[] row : grid) {
-            for (Node node : row) {
-                node.setIsPath(false);
-                node.setIsDetectedAsDanger(false);
-                node.setPrevious(null);
+    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException;
+
+    default boolean isSafe(Board board, Coordinate coordinate, boolean isInvisible) {
+        if (isInvisible) {
+            return (coordinate.getY() >= 0 && coordinate.getY() < board.size()) &&
+                    (coordinate.getX() >= 0 && coordinate.getX() < board.size()) &&
+                    (!board.getCell(coordinate).isInspector());
+        }
+        return (coordinate.getY() >= 0 && coordinate.getY() < board.size()) &&
+                (coordinate.getX() >= 0 && coordinate.getX() < board.size()) &&
+                (!board.getCell(coordinate).isDangerOrInspector());
+    }
+
+    default ArrayList<Coordinate> restorePath(ArrayList<ArrayList<Node>> cellsInfo, Coordinate coordinate) {
+        ArrayList<Coordinate> path = new ArrayList<>();
+        while (cellsInfo.get(coordinate.getX()).get(coordinate.getY()).getPrevious() != null) {
+            path.add(coordinate);
+            coordinate = cellsInfo.get(coordinate.getX()).get(coordinate.getY()).getPrevious();
+        }
+        path.add(coordinate);
+        Collections.reverse(path);
+        return path;
+    }
+
+    default ArrayList<Coordinate> detectDangerNodes(Board board, Coordinate coordinate) {
+        ArrayList<Coordinate> dangerNodes = new ArrayList<>();
+
+        int X = coordinate.getX();
+        int Y = coordinate.getY();
+        for (int i = -1; i <= 1; i++) {
+            if (X + i >= 0 && X + i < board.size() && Y + 2 >= 0 && Y + 2 < board.size()) {
+                if (board.getCell(new Coordinate(X + i, Y + 2)).isDangerOrInspector()) {
+                    dangerNodes.add(new Coordinate(X + i, Y + 2));
+                }
+            }
+            if (X + 2 >= 0 && X + 2 < board.size() && Y + i >= 0 && Y + i < board.size()){
+                if (board.getCell(new Coordinate(X + 2, Y + i)).isDangerOrInspector()) {
+                    dangerNodes.add(new Coordinate(X + 2, Y + i));
+                }
+            }
+            if (X + i >= 0 && X + i < board.size() && Y - 2 >= 0 && Y - 2 < board.size()) {
+                if (board.getCell(new Coordinate(X + i, Y - 2)).isDangerOrInspector()) {
+                    dangerNodes.add(new Coordinate(X + i, Y - 2));
+                }
+            }
+            if (X - 2 >= 0 && X - 2 < board.size() && Y + i >= 0 && Y + i < board.size()) {
+                if (board.getCell(new Coordinate(X - 2, Y + i)).isDangerOrInspector()) {
+                    dangerNodes.add(new Coordinate(X - 2, Y + i));
+                }
             }
         }
+        return dangerNodes;
     }
 }
 
-class Backtracking implements findPathInterface{
+class Backtracking implements FindPathInterface {
     @Override
-    public ArrayList<Coordinate> findPath(Grid grid, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) {
-        Grid copyOfGrid = new Grid()
-        if(!findPathBacktrackingRecursive(startPosition, endPosition, isInvisible, mode)) {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
+        ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
+        ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
+        for (int row = 0; row < board.size(); row++) {
+            cellsInfo.add(new ArrayList<>());
+            for (int column = 0; column < board.size(); column++) {
+                cellsInfo.get(row).add(new Node());
+            }
+        }
+
+        if(!findPathBacktrackingRecursive(board, cellsInfo, startPosition, endPosition, isInvisible, mode, detectedDangerNodes)) {
             return null;
         }
-        return restorePath(endPosition);
+        return restorePath(cellsInfo, endPosition);
     }
 
-    private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
-        if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
-            grid[startPosition.getX()][startPosition.getY()].setIsPath(true);
+    private boolean findPathBacktrackingRecursive(Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException {
+        if (startPosition.equals(endPosition) && isSafe(board, startPosition, isInvisible)) {
+            cellsInfo.get(startPosition.getX()).get(startPosition.getY()).setIsPath(true);
             return true;
         }
 
-        if (isSafe(startPosition, isInvisible)) {
+        if (isSafe(board, startPosition, isInvisible)) {
             if (mode == 2) {
-                detectDangerNodes(startPosition);
+                detectedDangerNodes.addAll(detectDangerNodes(board, startPosition));
             }
 
-            Node nodeInStartPosition = grid[startPosition.getX()][startPosition.getY()];
+            Node nodeInStartPosition = cellsInfo.get(startPosition.getX()).get(startPosition.getY());
             if (nodeInStartPosition.isPath()) {
                 return false;
             }
 
-
             nodeInStartPosition.setIsPath(true);
 
-            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition);
+            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition, board.size());
 
             for (Coordinate next : nextCoordinateToStep) {
-                getNode(next).setPrevious(startPosition);
-                if (findPathBacktrackingRecursive(next, endPosition, isInvisible, mode)) {
+                cellsInfo.get(next.getX()).get(next.getY()).setPrevious(startPosition);
+                if (findPathBacktrackingRecursive(board, cellsInfo, next, endPosition, isInvisible, mode, detectedDangerNodes)) {
                     return true;
                 }
             }
@@ -103,16 +180,154 @@ class Backtracking implements findPathInterface{
             return false;
         }
 
-        if(mode == 2 && !grid[startPosition.getX()][startPosition.getY()].isDetectedAsDanger()) {
-            throw new HarryIsCapturedException(restorePath(startPosition));
+        if(mode == 2 && !detectedDangerNodes.contains(startPosition)) {
+            throw new HarryIsCapturedException(restorePath(cellsInfo, startPosition));
         }
 
         return false;
     }
 
+
+    private LinkedList<Coordinate> getOperationPriority(Coordinate startPosition, Coordinate endPosition, int sizeOfGrid) {
+        LinkedList<Coordinate> priority = new LinkedList<>();
+        LinkedList<Integer> priorityX = new LinkedList<>();
+        if (endPosition.getX() == startPosition.getX()) {
+            priorityX.add(0);
+            priorityX.add(+1);
+            priorityX.add(-1);
+        }
+        else {
+            int sign = (endPosition.getX() - startPosition.getX()) / Math.abs(endPosition.getX() - startPosition.getX());
+            priorityX.add(sign);
+            priorityX.add(0);
+            priorityX.add(-sign);
+        }
+
+        LinkedList<Integer> priorityY = new LinkedList<>();
+        if (endPosition.getY() == startPosition.getY()) {
+            priorityY.add(0);
+            priorityY.add(+1);
+            priorityY.add(-1);
+        }
+        else {
+            int sign = (endPosition.getY() - startPosition.getY()) / Math.abs(endPosition.getY() - startPosition.getY());
+            priorityY.add(sign);
+            priorityY.add(0);
+            priorityY.add(-sign);
+        }
+
+        for (int operationX : priorityX) {
+            for (int operationY : priorityY) {
+                if (operationX == 0 && operationY == 0) {
+                    continue;
+                }
+                if (startPosition.getX() + operationX < 0 || startPosition.getX() + operationX >= sizeOfGrid ||
+                        startPosition.getY() + operationY < 0 || startPosition.getY() + operationY >= sizeOfGrid) {
+                    continue;
+                }
+                priority.add(new Coordinate(startPosition.getX() + operationX, startPosition.getY() + operationY));
+            }
+        }
+
+        return priority;
+    }
+
 }
 
- */
+class AStar implements FindPathInterface {
+    @Override
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
+        ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
+        ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
+        for (int row = 0; row < board.size(); row++) {
+            cellsInfo.add(new ArrayList<>());
+            for (int column = 0; column < board.size(); column++) {
+                cellsInfo.get(row).add(new Node());
+            }
+        }
+
+        LinkedList<Coordinate> open = new LinkedList<>();
+        ArrayList<Coordinate> closed = new ArrayList<>();
+        cellsInfo.get(startPosition.getX()).get(startPosition.getY()).setG(0);
+        cellsInfo.get(startPosition.getX()).get(startPosition.getY()).setH(getHeuristic(startPosition, endPosition));
+        cellsInfo.get(startPosition.getX()).get(startPosition.getY()).setPrevious(null);
+
+        open.add(startPosition);
+
+        while (!open.isEmpty()) {
+            Coordinate current = open.peek();
+            for (Coordinate coordinate : open) {
+                if (cellsInfo.get(coordinate.getX()).get(coordinate.getY()).getF() < cellsInfo.get(current.getX()).get(current.getY()).getF()) {
+                    current = coordinate;
+                }
+            }
+            open.remove(current);
+            closed.add(current);
+
+            if (mode == 2) {
+                detectedDangerNodes.addAll(detectDangerNodes(board, startPosition));
+            }
+
+            if (isSafe(board, current, isInvisible)) {
+                if (current.equals(endPosition)) {
+                    return restorePath(cellsInfo, current);
+                }
+
+                ArrayList<Coordinate> neighbors = getNeighbors(current, board.size());
+                for (Coordinate neighbor : neighbors) {
+                    if (closed.contains(neighbor)) {
+                        continue;
+                    }
+
+                    if (open.contains(neighbor)) {
+                        Coordinate coordinateOfNeighborNode = open.get(open.indexOf(neighbor));
+                        Node neighborNode = cellsInfo.get(coordinateOfNeighborNode.getX()).get(coordinateOfNeighborNode.getY());
+                        if (cellsInfo.get(current.getX()).get(current.getY()).getG() + 1 < neighborNode.getG()) {
+                            neighborNode.setG(cellsInfo.get(current.getX()).get(current.getY()).getG() + 1);
+                            neighborNode.setPrevious(current);
+                        }
+                    } else {
+                        Node neighborNode = cellsInfo.get(neighbor.getX()).get(neighbor.getY());
+                        neighborNode.setG(cellsInfo.get(current.getX()).get(current.getY()).getG() + 1);
+                        neighborNode.setH(getHeuristic(neighbor, endPosition));
+                        neighborNode.setPrevious(current);
+                        open.add(neighbor);
+                    }
+                }
+            }
+            else {
+                if (mode == 2 && !detectedDangerNodes.contains(current)) {
+                    throw new HarryIsCapturedException(restorePath(cellsInfo, current));
+                }
+            }
+        }
+        return null;
+    }
+
+    private double getHeuristic(Coordinate startPosition, Coordinate endPosition) {
+        return Math.sqrt(Math.pow(startPosition.getX() - endPosition.getX(), 2) + Math.pow(startPosition.getY() - endPosition.getY(),2));
+    }
+
+    public ArrayList<Coordinate> getNeighbors(Coordinate coordinate, int sizeOfGrid) {
+        ArrayList<Coordinate> neighbors = new ArrayList<>();
+
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                if (i == 0 && j == 0) {
+                    continue;
+                }
+
+                Coordinate neighbor = new Coordinate(coordinate.getX() + i, coordinate.getY() + j);
+                if ((neighbor.getY() >= 0 && neighbor.getY() < sizeOfGrid) && (neighbor.getX() >= 0 && neighbor.getX() < sizeOfGrid)) {
+                    neighbors.add(neighbor);
+                }
+            }
+        }
+
+        return neighbors;
+    }
+}
+
 
 class Coordinate {
     private final int X;
@@ -157,7 +372,10 @@ class IO {
     private static final Scanner scanner = new Scanner(System.in);
 
     static ArrayList<Coordinate> readCoordinates() {
-        String inputString = scanner.nextLine();
+        return parseCoordinates(scanner.nextLine());
+    }
+
+    static ArrayList<Coordinate> parseCoordinates(String inputString) {
         String[] stringCoordinates = inputString.split(" ");
         ArrayList<Coordinate> coordinates = new ArrayList<>();
         for (String coordinate : stringCoordinates) {
@@ -212,25 +430,11 @@ enum TypeOfNode{
     }
 }
 
-class Node {
+class Cell{
     private final TreeSet<TypeOfNode> typesOfNode;
-    private Boolean isPath = false;
-    private Boolean isDetectedAsDanger = false;
 
-    private int g = -1;
-    private double h = -1;
-    private Coordinate previous = null;
-
-    public Node() {
+    public Cell() {
         this.typesOfNode = new TreeSet<>();
-    }
-
-    public Boolean isPath() {
-        return isPath;
-    }
-
-    public void setIsPath(Boolean path) {
-        isPath = path;
     }
 
     public TreeSet<TypeOfNode> getTypesOfNode() {
@@ -241,14 +445,6 @@ class Node {
         typesOfNode.add(typeOfNode);
     }
 
-    public Boolean isDetectedAsDanger() {
-        return isDetectedAsDanger;
-    }
-
-    public void setIsDetectedAsDanger(Boolean detectedAsDanger) {
-        isDetectedAsDanger = detectedAsDanger;
-    }
-
     public boolean containsCloak() {
         for (TypeOfNode typeOfNode : typesOfNode) {
             if (typeOfNode == TypeOfNode.CLOAK) {
@@ -256,30 +452,6 @@ class Node {
             }
         }
         return false;
-    }
-
-    public int getG() {
-        return g;
-    }
-
-    public void setG(int g) {
-        this.g = g;
-    }
-
-    public void setH(double h) {
-        this.h = h;
-    }
-
-    public double getF() {
-        return g+h;
-    }
-
-    public Coordinate getPrevious() {
-        return previous;
-    }
-
-    public void setPrevious(Coordinate previous) {
-        this.previous = previous;
     }
 
     public boolean containsCrucialElements() {
@@ -320,32 +492,32 @@ class Node {
     }
 }
 
-class Grid {
-    private final ArrayList<ArrayList<Node>> grid;
+class Board{
+    private final ArrayList<ArrayList<Cell>> grid;
 
-    public Grid(int sizeOfGrid,
-                int radiusOfStrongInspector,
-                int radiusOfInspector,
-                Coordinate startPosition,
-                Coordinate filthPosition,
-                Coordinate catPosition,
-                Coordinate bookPosition,
-                Coordinate cloakPosition,
-                Coordinate exitPosition) throws IllegalInputCoordinate, HarryIsCapturedException {
+    public Board(int sizeOfGrid,
+                 int radiusOfStrongInspector,
+                 int radiusOfInspector,
+                 Coordinate startPosition,
+                 Coordinate filthPosition,
+                 Coordinate catPosition,
+                 Coordinate bookPosition,
+                 Coordinate cloakPosition,
+                 Coordinate exitPosition) throws IllegalInputCoordinate, HarryIsCapturedException {
         grid = new ArrayList<>();
 
         for (int row = 0; row < sizeOfGrid; row++) {
             grid.add(new ArrayList<>());
             for (int column = 0; column < sizeOfGrid; column++) {
-                grid.get(row).add(new Node());
+                grid.get(row).add(new Cell());
             }
         }
 
-        getNode(startPosition).addTypeOfNode(TypeOfNode.START);
-        getNode(bookPosition).addTypeOfNode(TypeOfNode.BOOK);
-        getNode(cloakPosition).addTypeOfNode(TypeOfNode.CLOAK);
-        if (!getNode(exitPosition).getTypesOfNode().contains(TypeOfNode.BOOK)) {
-            getNode(exitPosition).addTypeOfNode(TypeOfNode.EXIT);
+        getCell(startPosition).addTypeOfNode(TypeOfNode.START);
+        getCell(bookPosition).addTypeOfNode(TypeOfNode.BOOK);
+        getCell(cloakPosition).addTypeOfNode(TypeOfNode.CLOAK);
+        if (!getCell(exitPosition).getTypesOfNode().contains(TypeOfNode.BOOK)) {
+            getCell(exitPosition).addTypeOfNode(TypeOfNode.EXIT);
         }
         else {
             throw new IllegalInputCoordinate(TypeOfNode.BOOK, TypeOfNode.EXIT);
@@ -357,13 +529,13 @@ class Grid {
         for (int row = 0; row < sizeOfGrid; row++) {
             for (int column = 0; column < sizeOfGrid; column++) {
                 Coordinate currentCoordinate = new Coordinate(row, column);
-                if (getNode(currentCoordinate).getTypesOfNode().isEmpty()) {
-                    getNode(currentCoordinate).addTypeOfNode(TypeOfNode.DEFAULT);
+                if (getCell(currentCoordinate).getTypesOfNode().isEmpty()) {
+                    getCell(currentCoordinate).addTypeOfNode(TypeOfNode.DEFAULT);
                 }
             }
         }
 
-        if (!isSafe(startPosition, false)) {
+        if (getCell(startPosition).isDangerOrInspector()) {
             ArrayList<Coordinate> capturedPath = new ArrayList<>();
             capturedPath.add(startPosition);
             throw new HarryIsCapturedException(capturedPath);
@@ -377,252 +549,22 @@ class Grid {
                 if(row < 0 || row >= grid.size() || column < 0 || column >= grid.size()){
                     continue;
                 }
-                if (getNode(currentCoordinate).containsCrucialElements()) {
-                    throw new IllegalInputCoordinate(getNode(coordinate).getTypesOfNode().first(), TypeOfNode.DANGER);
+                if (getCell(currentCoordinate).containsCrucialElements()) {
+                    throw new IllegalInputCoordinate(getCell(coordinate).getTypesOfNode().first(), TypeOfNode.DANGER);
                 }
-                if (!getNode(currentCoordinate).getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
-                    getNode(currentCoordinate).addTypeOfNode(TypeOfNode.DANGER);
+                if (!getCell(currentCoordinate).getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
+                    getCell(currentCoordinate).addTypeOfNode(TypeOfNode.DANGER);
                 }
             }
         }
-        if(getNode(coordinate).containsCrucialElements()) {
-            throw new IllegalInputCoordinate(getNode(coordinate).getTypesOfNode().first(), TypeOfNode.INSPECTOR);
+        if(getCell(coordinate).containsCrucialElements()) {
+            throw new IllegalInputCoordinate(getCell(coordinate).getTypesOfNode().first(), TypeOfNode.INSPECTOR);
         }
-        getNode(coordinate).getTypesOfNode().remove(TypeOfNode.DANGER);
-        getNode(coordinate).addTypeOfNode(TypeOfNode.INSPECTOR);
+        getCell(coordinate).getTypesOfNode().remove(TypeOfNode.DANGER);
+        getCell(coordinate).addTypeOfNode(TypeOfNode.INSPECTOR);
     }
 
-    private boolean isSafe(Coordinate coordinate, boolean isInvisible) {
-        if (isInvisible) {
-            return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
-                    (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
-                    (!getNode(coordinate).isInspector());
-        }
-        return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
-                (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
-                (!getNode(coordinate).isDangerOrInspector());
-    }
-
-    public ArrayList<Coordinate> findPathBacktracking(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
-        clearPaths();
-        if(!findPathBacktrackingRecursive(startPosition, endPosition, isInvisible, mode)) {
-            return null;
-        }
-        return restorePath(endPosition);
-    }
-
-    private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
-        if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
-            getNode(startPosition).setIsPath(true);
-            return true;
-        }
-
-        if (isSafe(startPosition, isInvisible)) {
-            if (mode == 2) {
-                detectDangerNodes(startPosition);
-            }
-
-            Node nodeInStartPosition = getNode(startPosition);
-            if (nodeInStartPosition.isPath()) {
-                return false;
-            }
-
-
-            nodeInStartPosition.setIsPath(true);
-
-            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition);
-
-            for (Coordinate next : nextCoordinateToStep) {
-                getNode(next).setPrevious(startPosition);
-                if (findPathBacktrackingRecursive(next, endPosition, isInvisible, mode)) {
-                    return true;
-                }
-            }
-
-            nodeInStartPosition.setIsPath(false);
-            return false;
-        }
-
-        if(mode == 2 && !getNode(startPosition).isDetectedAsDanger()) {
-            throw new HarryIsCapturedException(restorePath(startPosition));
-        }
-
-        return false;
-    }
-
-    private void clearPaths() {
-        for (ArrayList<Node> row : grid) {
-            for (Node node : row) {
-                node.setIsPath(false);
-                node.setIsDetectedAsDanger(false);
-                node.setPrevious(null);
-            }
-        }
-    }
-
-    private LinkedList<Coordinate> getOperationPriority(Coordinate startPosition, Coordinate endPosition) {
-        LinkedList<Coordinate> priority = new LinkedList<>();
-        LinkedList<Integer> priorityX = new LinkedList<>();
-        if (endPosition.getX() == startPosition.getX()) {
-            priorityX.add(0);
-            priorityX.add(+1);
-            priorityX.add(-1);
-        }
-        else {
-            int sign = (endPosition.getX() - startPosition.getX()) / Math.abs(endPosition.getX() - startPosition.getX());
-            priorityX.add(sign);
-            priorityX.add(0);
-            priorityX.add(-sign);
-        }
-
-        LinkedList<Integer> priorityY = new LinkedList<>();
-        if (endPosition.getY() == startPosition.getY()) {
-            priorityY.add(0);
-            priorityY.add(+1);
-            priorityY.add(-1);
-        }
-        else {
-            int sign = (endPosition.getY() - startPosition.getY()) / Math.abs(endPosition.getY() - startPosition.getY());
-            priorityY.add(sign);
-            priorityY.add(0);
-            priorityY.add(-sign);
-        }
-
-        for (int operationX : priorityX) {
-            for (int operationY : priorityY) {
-                if (operationX == 0 && operationY == 0) {
-                    continue;
-                }
-                if (startPosition.getX() + operationX < 0 || startPosition.getX() + operationX >= grid.size() ||
-                        startPosition.getY() + operationY < 0 || startPosition.getY() + operationY >= grid.size()) {
-                    continue;
-                }
-                priority.add(new Coordinate(startPosition.getX() + operationX, startPosition.getY() + operationY));
-            }
-        }
-
-        return priority;
-    }
-
-    private void detectDangerNodes(Coordinate coordinate) {
-        int X = coordinate.getX();
-        int Y = coordinate.getY();
-        for (int i = -1; i <= 1; i++) {
-            if (X + i >= 0 && X + i < grid.size() && Y + 2 >= 0 && Y + 2 < grid.size()) {
-                if (getNode(new Coordinate(X + i, Y + 2)).isDangerOrInspector()) {
-                    getNode(new Coordinate(X + i, Y + 2)).setIsDetectedAsDanger(true);
-                }
-            }
-            if (X + 2 >= 0 && X + 2 < grid.size() && Y + i >= 0 && Y + i < grid.size()){
-                if (getNode(new Coordinate(X + 2, Y + i)).isDangerOrInspector()) {
-                    getNode(new Coordinate(X + 2, Y + i)).setIsDetectedAsDanger(true);
-                }
-            }
-            if (X + i >= 0 && X + i < grid.size() && Y - 2 >= 0 && Y - 2 < grid.size()) {
-                if (getNode(new Coordinate(X + i, Y - 2)).isDangerOrInspector()) {
-                    getNode(new Coordinate(X + i, Y - 2)).setIsDetectedAsDanger(true);
-                }
-            }
-            if (X - 2 >= 0 && X - 2 < grid.size() && Y + i >= 0 && Y + i < grid.size()) {
-                if (getNode(new Coordinate(X - 2, Y + i)).isDangerOrInspector()) {
-                    getNode(new Coordinate(X - 2, Y + i)).setIsDetectedAsDanger(true);
-                }
-            }
-        }
-    }
-
-    private double getHeuristic(Coordinate startPosition, Coordinate endPosition) {
-        return Math.sqrt(Math.pow(startPosition.getX() - endPosition.getX(), 2) + Math.pow(startPosition.getY() - endPosition.getY(),2));
-    }
-
-    public ArrayList<Coordinate> findPathAStar(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
-        clearPaths();
-        LinkedList<Coordinate> open = new LinkedList<>();
-        ArrayList<Coordinate> closed = new ArrayList<>();
-        getNode(startPosition).setG(0);
-        getNode(startPosition).setH(getHeuristic(startPosition, endPosition));
-        getNode(startPosition).setPrevious(null);
-        open.add(startPosition);
-        while (!open.isEmpty()) {
-            Coordinate current = open.peek();
-            for (Coordinate coordinate : open) {
-                if (getNode(coordinate).getF() < getNode(current).getF()) {
-                    current = coordinate;
-                }
-            }
-            open.remove(current);
-            closed.add(current);
-
-            if (mode == 2) {
-                detectDangerNodes(startPosition);
-            }
-
-            if (isSafe(current, isInvisible)) {
-                if (current.equals(endPosition)) {
-                    return restorePath(current);
-                }
-
-                ArrayList<Coordinate> neighbors = getNeighbors(current);
-                for (Coordinate neighbor : neighbors) {
-                    if (closed.contains(neighbor)) {
-                        continue;
-                    }
-
-                    if (open.contains(neighbor)) {
-                        Node neighborNode = getNode(open.get(open.indexOf(neighbor)));
-                        if (getNode(current).getG() + 1 < neighborNode.getG()) {
-                            neighborNode.setG(getNode(current).getG() + 1);
-                            neighborNode.setPrevious(current);
-                        }
-                    } else {
-                        Node neighborNode = getNode(neighbor);
-                        neighborNode.setG(getNode(current).getG() + 1);
-                        neighborNode.setH(getHeuristic(neighbor, endPosition));
-                        neighborNode.setPrevious(current);
-                        open.add(neighbor);
-                    }
-                }
-            }
-            else {
-                if (mode == 2 && !getNode(current).isDetectedAsDanger()) {
-                    throw new HarryIsCapturedException(restorePath(current));
-                }
-            }
-        }
-        return null;
-    }
-
-    public ArrayList<Coordinate> getNeighbors(Coordinate coordinate) {
-        ArrayList<Coordinate> neighbors = new ArrayList<>();
-
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                if (i == 0 && j == 0) {
-                    continue;
-                }
-
-                Coordinate neighbor = new Coordinate(coordinate.getX() + i, coordinate.getY() + j);
-                if ((neighbor.getY() >= 0 && neighbor.getY() < grid.size()) && (neighbor.getX() >= 0 && neighbor.getX() < grid.size())) {
-                    neighbors.add(neighbor);
-                }
-            }
-        }
-
-        return neighbors;
-    }
-
-    private ArrayList<Coordinate> restorePath(Coordinate coordinate) {
-        ArrayList<Coordinate> path = new ArrayList<>();
-        while (getNode(coordinate).getPrevious() != null) {
-            path.add(coordinate);
-            coordinate = getNode(coordinate).getPrevious();
-        }
-        path.add(coordinate);
-        Collections.reverse(path);
-        return path;
-    }
-
-    public Node getNode(Coordinate coordinate) {
+    public Cell getCell(Coordinate coordinate) {
         return grid.get(coordinate.getX()).get(coordinate.getY());
     }
 
@@ -647,20 +589,20 @@ class Grid {
                 if (path.contains(inverseCoordinate)) {
                     gridString.append(ANSI_GREEN);
                 }
-                else if (getNode(inverseCoordinate).isDangerOrInspector()) {
+                else if (getCell(inverseCoordinate).isDangerOrInspector()) {
                     gridString.append(ANSI_RED);
                 }
                 else {
                     gridString.append(ANSI_WHITE);
                 }
 
-                if (path.contains(inverseCoordinate) && !getNode(inverseCoordinate).containsCrucialElements()) {
+                if (path.contains(inverseCoordinate) && !getCell(inverseCoordinate).containsCrucialElements() && !getCell(inverseCoordinate).getTypesOfNode().contains(TypeOfNode.START)) {
                     gridString.append(path.indexOf(inverseCoordinate));
                     lengthOfNode = Integer.toString(path.indexOf(inverseCoordinate)).length();
                 }
                 else {
-                    gridString.append(getNode(inverseCoordinate));
-                    lengthOfNode = getNode(inverseCoordinate).toString().length();
+                    gridString.append(getCell(inverseCoordinate));
+                    lengthOfNode = getCell(inverseCoordinate).toString().length();
                 }
                 gridString.append(ANSI_RESET);
 
@@ -737,11 +679,7 @@ class Solution {
         }
     }
 
-    enum TypeOfSearch {
-        ASTAR, BACKTRACKING;
-    }
-
-    Grid grid;
+    Board board;
     int mode;
     Coordinate harryPosition;
     Coordinate cloakPosition;
@@ -757,18 +695,18 @@ class Solution {
         this.exitPosition = inputCoordinates.get(5);
 
         try {
-            this.grid = new Grid(sizeOfGrid, filchRadius, catRadius, harryPosition, inputCoordinates.get(1), inputCoordinates.get(2), bookPosition, cloakPosition, exitPosition);
+            this.board = new Board(sizeOfGrid, filchRadius, catRadius, harryPosition, inputCoordinates.get(1), inputCoordinates.get(2), bookPosition, cloakPosition, exitPosition);
         }
         catch (IllegalInputCoordinate e) {
             IO.printString(e.getMessage());
             System.exit(1);
         }
         catch (HarryIsCapturedException e) {
-            IO.printString(e.getMessage());
+            IO.printString(e.getMessage() + ". He is spawned inside the danger zone");
             System.exit(1);
         }
         IO.printString("Initial grid: ");
-        IO.printString(grid.toString());
+        IO.printString(board.toString());
 
         this.mode = mode;
         this.allScenarios = new HashMap<>();
@@ -782,19 +720,19 @@ class Solution {
         this(RandomInput.getRandomInputCoordinates(), RandomInput.getRandomInputMode());
     }
 
-    public ArrayList<ArrayList<Coordinate>> findPath(TypeOfSearch typeOfSearch) {
+    public ArrayList<ArrayList<Coordinate>> findPath(FindPathInterface typeOfSearch) {
         ArrayList<ArrayList<Coordinate>> minPath = null;
         int minLength = Integer.MAX_VALUE;
         for(ArrayList<Coordinate> scenario : allScenarios.keySet()) {
-//            if (!allScenarios.get(scenario)) {
-//                continue;
-//            }
+            if (!allScenarios.get(scenario)) {
+                continue;
+            }
             try {
-//                if (typeOfSearch == TypeOfSearch.BACKTRACKING && mostProfitScenario != null) {
-//                    return calculatePath(typeOfSearch, grid, mode, mostProfitScenario);
-//                }
+                if (typeOfSearch.getClass().toString().equals(Backtracking.class.toString()) && mostProfitScenario != null) {
+                    return calculatePath(typeOfSearch, board, mode, mostProfitScenario);
+                }
 
-                ArrayList<ArrayList<Coordinate>> path = calculatePath(typeOfSearch, grid, mode, scenario);
+                ArrayList<ArrayList<Coordinate>> path = calculatePath(typeOfSearch, board, mode, scenario);
                 if (path != null) {
                     int overallLength = 0;
                     for (ArrayList<Coordinate> currentPath : path) {
@@ -815,32 +753,26 @@ class Solution {
             }
             catch (HarryIsCapturedException e) {
                 IO.printString(e.getMessage());
-                IO.printString(grid.toString(e.getCapturedPath()));
+                IO.printString(board.toString(e.getCapturedPath()));
+
                 System.exit(1);
             }
         }
         return minPath;
     }
 
-    private ArrayList<ArrayList<Coordinate>> calculatePath(TypeOfSearch typeOfSearch, Grid grid, int mode, ArrayList<Coordinate> scenario) throws HarryIsCapturedException {
+    private ArrayList<ArrayList<Coordinate>> calculatePath(FindPathInterface typeOfSearch, Board board, int mode, ArrayList<Coordinate> scenario) throws HarryIsCapturedException {
         boolean isCloakInPath = false;
         ArrayList<ArrayList<Coordinate>> path = new ArrayList<>();
 
         for (int i = 0; i < scenario.size() - 1; i++) {
-            if (!isCloakInPath && grid.getNode(scenario.get(i)).containsCloak()) {
+            if (!isCloakInPath && board.getCell(scenario.get(i)).containsCloak()) {
                 isCloakInPath = true;
             }
             ArrayList<Coordinate> currentPath;
-            switch (typeOfSearch) {
-                case BACKTRACKING:
-                    currentPath = grid.findPathBacktracking(scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
-                    break;
-                case ASTAR:
-                    currentPath = grid.findPathAStar(scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
-                    break;
-                default:
-                    currentPath = grid.findPathAStar(scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
-            }
+
+            currentPath  = typeOfSearch.findPath(board, scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
+
 
             if (currentPath == null) {
                 return null;
@@ -876,11 +808,11 @@ class Solution {
         StringBuilder output = new StringBuilder();
 
         for (ArrayList<Coordinate> currentPath : path) {
-            String start = grid.getNode(currentPath.get(0)).toString();
-            String end = grid.getNode(currentPath.get(currentPath.size() - 1)).toString();
+            String start = board.getCell(currentPath.get(0)).toString();
+            String end = board.getCell(currentPath.get(currentPath.size() - 1)).toString();
             output.append("Path from ").append(start).append(" to ").append(end).append(": \n");
 
-            output.append(grid.toString(currentPath)).append("\n");
+            output.append(board.toString(currentPath)).append("\n");
         }
 
         return output.toString();
@@ -898,21 +830,23 @@ public class Main {
             solution = new Solution();
         }
 
-        long start0 = System.currentTimeMillis();
-        ArrayList<ArrayList<Coordinate>> path1 = solution.findPath(Solution.TypeOfSearch.ASTAR);
-        long end0 = System.currentTimeMillis();
-        IO.printString("Elapsed Time in milli seconds: "+ (end0 - start0));
-        IO.printString(solution.toString(path1));
-
-        IO.newLine();
-
         long start1 = System.currentTimeMillis();
-        ArrayList<ArrayList<Coordinate>> path2 = solution.findPath(Solution.TypeOfSearch.BACKTRACKING);
+        ArrayList<ArrayList<Coordinate>> path2 = solution.findPath(new AStar());
         long end1 = System.currentTimeMillis();
+
         IO.printString("Elapsed Time in milli seconds: "+ (end1-start1));
         IO.printString(solution.toString(path2));
-
         IO.newLine();
+
+        long start0 = System.currentTimeMillis();
+        ArrayList<ArrayList<Coordinate>> path1 = solution.findPath(new Backtracking());
+        long end0 = System.currentTimeMillis();
+
+        IO.printString("Elapsed Time in milli seconds: "+ (end0 - start0));
+        IO.printString(solution.toString(path1));
+        IO.newLine();
+
+
         //IO.printString(solution.toString(path2));
     }
 }
