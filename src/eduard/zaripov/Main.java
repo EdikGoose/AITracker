@@ -150,9 +150,12 @@ class Backtracking implements FindPathInterface {
     }
 
     private boolean findPathBacktrackingRecursive(Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException {
-        if (startPosition.equals(endPosition) && isSafe(board, startPosition, isInvisible)) {
-            cellsInfo.get(startPosition.getX()).get(startPosition.getY()).setIsPath(true);
-            return true;
+        if (startPosition.equals(endPosition)) {
+            if (isSafe(board, startPosition, isInvisible)) {
+                cellsInfo.get(startPosition.getX()).get(startPosition.getY()).setIsPath(true);
+                return true;
+            }
+            return false;
         }
 
         if (isSafe(board, startPosition, isInvisible)) {
@@ -167,10 +170,12 @@ class Backtracking implements FindPathInterface {
 
             nodeInStartPosition.setIsPath(true);
 
-            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition, board.size());
+            LinkedList<Coordinate> nextCoordinatesToStep = getOperationPriority(startPosition, endPosition, board.size());
 
-            for (Coordinate next : nextCoordinateToStep) {
-                cellsInfo.get(next.getX()).get(next.getY()).setPrevious(startPosition);
+            for (Coordinate next : nextCoordinatesToStep) {
+                if (!cellsInfo.get(next.getX()).get(next.getY()).isPath()) {
+                    cellsInfo.get(next.getX()).get(next.getY()).setPrevious(startPosition);
+                }
                 if (findPathBacktrackingRecursive(board, cellsInfo, next, endPosition, isInvisible, mode, detectedDangerNodes)) {
                     return true;
                 }
@@ -724,13 +729,13 @@ class Solution {
         ArrayList<ArrayList<Coordinate>> minPath = null;
         int minLength = Integer.MAX_VALUE;
         for(ArrayList<Coordinate> scenario : allScenarios.keySet()) {
-            if (!allScenarios.get(scenario)) {
-                continue;
-            }
+//            if (!allScenarios.get(scenario)) {
+//                continue;
+//            }
             try {
-                if (typeOfSearch.getClass().toString().equals(Backtracking.class.toString()) && mostProfitScenario != null) {
-                    return calculatePath(typeOfSearch, board, mode, mostProfitScenario);
-                }
+//                if (typeOfSearch.getClass().toString().equals(Backtracking.class.toString()) && mostProfitScenario != null) {
+//                    return calculatePath(typeOfSearch, board, mode, mostProfitScenario);
+//                }
 
                 ArrayList<ArrayList<Coordinate>> path = calculatePath(typeOfSearch, board, mode, scenario);
                 if (path != null) {
@@ -773,14 +778,11 @@ class Solution {
 
             currentPath  = typeOfSearch.findPath(board, scenario.get(i), scenario.get(i + 1), isCloakInPath, mode);
 
-
             if (currentPath == null) {
                 return null;
             }
-
             path.add(currentPath);
         }
-
         return path;
     }
 
