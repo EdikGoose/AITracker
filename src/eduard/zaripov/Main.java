@@ -1,7 +1,5 @@
 package eduard.zaripov;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 
 class IllegalInputCoordinate extends Exception {
@@ -36,6 +34,85 @@ class HarryIsCapturedException extends Exception {
         return "Harry is captured";
     }
 }
+
+/*
+interface findPathInterface{
+    ArrayList<Coordinate> findPath(Grid grid, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode);
+
+    default boolean isSafe(Grid grid, Coordinate coordinate, boolean isInvisible) {
+        if (isInvisible) {
+            return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
+                    (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
+                    (!grid.getNode(coordinate).isInspector());
+        }
+        return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
+                (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
+                (!grid.getNode(coordinate).isDangerOrInspector());
+    }
+
+    default void clearPaths(Grid grid) {
+        for (Node[] row : grid) {
+            for (Node node : row) {
+                node.setIsPath(false);
+                node.setIsDetectedAsDanger(false);
+                node.setPrevious(null);
+            }
+        }
+    }
+}
+
+class Backtracking implements findPathInterface{
+    @Override
+    public ArrayList<Coordinate> findPath(Grid grid, Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) {
+        Grid copyOfGrid = new Grid()
+        if(!findPathBacktrackingRecursive(startPosition, endPosition, isInvisible, mode)) {
+            return null;
+        }
+        return restorePath(endPosition);
+    }
+
+    private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
+        if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
+            grid[startPosition.getX()][startPosition.getY()].setIsPath(true);
+            return true;
+        }
+
+        if (isSafe(startPosition, isInvisible)) {
+            if (mode == 2) {
+                detectDangerNodes(startPosition);
+            }
+
+            Node nodeInStartPosition = grid[startPosition.getX()][startPosition.getY()];
+            if (nodeInStartPosition.isPath()) {
+                return false;
+            }
+
+
+            nodeInStartPosition.setIsPath(true);
+
+            LinkedList<Coordinate> nextCoordinateToStep = getOperationPriority(startPosition, endPosition);
+
+            for (Coordinate next : nextCoordinateToStep) {
+                getNode(next).setPrevious(startPosition);
+                if (findPathBacktrackingRecursive(next, endPosition, isInvisible, mode)) {
+                    return true;
+                }
+            }
+
+            nodeInStartPosition.setIsPath(false);
+            return false;
+        }
+
+        if(mode == 2 && !grid[startPosition.getX()][startPosition.getY()].isDetectedAsDanger()) {
+            throw new HarryIsCapturedException(restorePath(startPosition));
+        }
+
+        return false;
+    }
+
+}
+
+ */
 
 class Coordinate {
     private final int X;
@@ -244,7 +321,7 @@ class Node {
 }
 
 class Grid {
-    private final Node[][] grid;
+    private final ArrayList<ArrayList<Node>> grid;
 
     public Grid(int sizeOfGrid,
                 int radiusOfStrongInspector,
@@ -255,19 +332,20 @@ class Grid {
                 Coordinate bookPosition,
                 Coordinate cloakPosition,
                 Coordinate exitPosition) throws IllegalInputCoordinate, HarryIsCapturedException {
-        grid = new Node[sizeOfGrid][sizeOfGrid];
+        grid = new ArrayList<>();
 
-        for (int row = 0; row < grid.length; row++) {
-            for (int column = 0; column < grid.length; column++) {
-                grid[row][column] = new Node();
+        for (int row = 0; row < sizeOfGrid; row++) {
+            grid.add(new ArrayList<>());
+            for (int column = 0; column < sizeOfGrid; column++) {
+                grid.get(row).add(new Node());
             }
         }
 
-        grid[startPosition.getX()][startPosition.getY()].addTypeOfNode(TypeOfNode.START);
-        grid[bookPosition.getX()][bookPosition.getY()].addTypeOfNode(TypeOfNode.BOOK);
-        grid[cloakPosition.getX()][cloakPosition.getY()].addTypeOfNode(TypeOfNode.CLOAK);
-        if (!grid[exitPosition.getX()][exitPosition.getY()].getTypesOfNode().contains(TypeOfNode.BOOK)) {
-            grid[exitPosition.getX()][exitPosition.getY()].addTypeOfNode(TypeOfNode.EXIT);
+        getNode(startPosition).addTypeOfNode(TypeOfNode.START);
+        getNode(bookPosition).addTypeOfNode(TypeOfNode.BOOK);
+        getNode(cloakPosition).addTypeOfNode(TypeOfNode.CLOAK);
+        if (!getNode(exitPosition).getTypesOfNode().contains(TypeOfNode.BOOK)) {
+            getNode(exitPosition).addTypeOfNode(TypeOfNode.EXIT);
         }
         else {
             throw new IllegalInputCoordinate(TypeOfNode.BOOK, TypeOfNode.EXIT);
@@ -276,10 +354,11 @@ class Grid {
         addInspector(filthPosition, radiusOfStrongInspector);
         addInspector(catPosition, radiusOfInspector);
 
-        for (int row = 0; row < grid.length; row++) {
-            for (int column = 0; column < grid.length; column++) {
-                if (grid[row][column].getTypesOfNode().isEmpty()) {
-                    grid[row][column].addTypeOfNode(TypeOfNode.DEFAULT);
+        for (int row = 0; row < sizeOfGrid; row++) {
+            for (int column = 0; column < sizeOfGrid; column++) {
+                Coordinate currentCoordinate = new Coordinate(row, column);
+                if (getNode(currentCoordinate).getTypesOfNode().isEmpty()) {
+                    getNode(currentCoordinate).addTypeOfNode(TypeOfNode.DEFAULT);
                 }
             }
         }
@@ -294,33 +373,34 @@ class Grid {
     public void addInspector(Coordinate coordinate, int radius) throws IllegalInputCoordinate {
         for (int row = coordinate.getX() - radius; row <= coordinate.getX() + radius; row++) {
             for (int column = coordinate.getY() - radius; column <= coordinate.getY() + radius; column++) {
-                if(row < 0 || row >= grid.length || column < 0 || column >= grid.length){
+                Coordinate currentCoordinate = new Coordinate(row, column);
+                if(row < 0 || row >= grid.size() || column < 0 || column >= grid.size()){
                     continue;
                 }
-                if (grid[row][column].containsCrucialElements()) {
+                if (getNode(currentCoordinate).containsCrucialElements()) {
                     throw new IllegalInputCoordinate(getNode(coordinate).getTypesOfNode().first(), TypeOfNode.DANGER);
                 }
-                if (!grid[row][column].getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
-                    grid[row][column].addTypeOfNode(TypeOfNode.DANGER);
+                if (!getNode(currentCoordinate).getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
+                    getNode(currentCoordinate).addTypeOfNode(TypeOfNode.DANGER);
                 }
             }
         }
         if(getNode(coordinate).containsCrucialElements()) {
             throw new IllegalInputCoordinate(getNode(coordinate).getTypesOfNode().first(), TypeOfNode.INSPECTOR);
         }
-        grid[coordinate.getX()][coordinate.getY()].getTypesOfNode().remove(TypeOfNode.DANGER);
-        grid[coordinate.getX()][coordinate.getY()].addTypeOfNode(TypeOfNode.INSPECTOR);
+        getNode(coordinate).getTypesOfNode().remove(TypeOfNode.DANGER);
+        getNode(coordinate).addTypeOfNode(TypeOfNode.INSPECTOR);
     }
 
     private boolean isSafe(Coordinate coordinate, boolean isInvisible) {
         if (isInvisible) {
-            return (coordinate.getY() >= 0 && coordinate.getY() < grid.length) &&
-                    (coordinate.getX() >= 0 && coordinate.getX() < grid.length) &&
-                    (!grid[coordinate.getX()][coordinate.getY()].isInspector());
+            return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
+                    (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
+                    (!getNode(coordinate).isInspector());
         }
-        return (coordinate.getY() >= 0 && coordinate.getY() < grid.length) &&
-                (coordinate.getX() >= 0 && coordinate.getX() < grid.length) &&
-                (!grid[coordinate.getX()][coordinate.getY()].isDangerOrInspector());
+        return (coordinate.getY() >= 0 && coordinate.getY() < grid.size()) &&
+                (coordinate.getX() >= 0 && coordinate.getX() < grid.size()) &&
+                (!getNode(coordinate).isDangerOrInspector());
     }
 
     public ArrayList<Coordinate> findPathBacktracking(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
@@ -333,7 +413,7 @@ class Grid {
 
     private boolean findPathBacktrackingRecursive(Coordinate startPosition, Coordinate endPosition, boolean isInvisible, int mode) throws HarryIsCapturedException {
         if (startPosition.equals(endPosition) && isSafe(startPosition, isInvisible)) {
-            grid[startPosition.getX()][startPosition.getY()].setIsPath(true);
+            getNode(startPosition).setIsPath(true);
             return true;
         }
 
@@ -342,7 +422,7 @@ class Grid {
                 detectDangerNodes(startPosition);
             }
 
-            Node nodeInStartPosition = grid[startPosition.getX()][startPosition.getY()];
+            Node nodeInStartPosition = getNode(startPosition);
             if (nodeInStartPosition.isPath()) {
                 return false;
             }
@@ -363,7 +443,7 @@ class Grid {
             return false;
         }
 
-        if(mode == 2 && !grid[startPosition.getX()][startPosition.getY()].isDetectedAsDanger()) {
+        if(mode == 2 && !getNode(startPosition).isDetectedAsDanger()) {
             throw new HarryIsCapturedException(restorePath(startPosition));
         }
 
@@ -371,7 +451,7 @@ class Grid {
     }
 
     private void clearPaths() {
-        for (Node[] row : grid) {
+        for (ArrayList<Node> row : grid) {
             for (Node node : row) {
                 node.setIsPath(false);
                 node.setIsDetectedAsDanger(false);
@@ -413,8 +493,8 @@ class Grid {
                 if (operationX == 0 && operationY == 0) {
                     continue;
                 }
-                if (startPosition.getX() + operationX < 0 || startPosition.getX() + operationX >= grid.length ||
-                        startPosition.getY() + operationY < 0 || startPosition.getY() + operationY >= grid.length) {
+                if (startPosition.getX() + operationX < 0 || startPosition.getX() + operationX >= grid.size() ||
+                        startPosition.getY() + operationY < 0 || startPosition.getY() + operationY >= grid.size()) {
                     continue;
                 }
                 priority.add(new Coordinate(startPosition.getX() + operationX, startPosition.getY() + operationY));
@@ -428,28 +508,26 @@ class Grid {
         int X = coordinate.getX();
         int Y = coordinate.getY();
         for (int i = -1; i <= 1; i++) {
-            if (X + i >= 0 && X + i < grid.length && Y + 2 >= 0 && Y + 2 < grid.length) {
-                if (grid[X + i][Y + 2].isDangerOrInspector()) {
-                    grid[X + i][Y + 2].setIsDetectedAsDanger(true);
+            if (X + i >= 0 && X + i < grid.size() && Y + 2 >= 0 && Y + 2 < grid.size()) {
+                if (getNode(new Coordinate(X + i, Y + 2)).isDangerOrInspector()) {
+                    getNode(new Coordinate(X + i, Y + 2)).setIsDetectedAsDanger(true);
                 }
             }
-            if (X + 2 >= 0 && X + 2 < grid.length && Y + i >= 0 && Y + i < grid.length){
-                if(grid[X + 2][Y + i].isDangerOrInspector()) {
-                    grid[X + 2][Y + i].setIsDetectedAsDanger(true);
+            if (X + 2 >= 0 && X + 2 < grid.size() && Y + i >= 0 && Y + i < grid.size()){
+                if (getNode(new Coordinate(X + 2, Y + i)).isDangerOrInspector()) {
+                    getNode(new Coordinate(X + 2, Y + i)).setIsDetectedAsDanger(true);
                 }
             }
-            if (X + i >= 0 && X + i < grid.length && Y - 2 >= 0 && Y - 2 < grid.length) {
-                if (grid[X + i][Y - 2].isDangerOrInspector()) {
-                    grid[X + i][Y - 2].setIsDetectedAsDanger(true);
+            if (X + i >= 0 && X + i < grid.size() && Y - 2 >= 0 && Y - 2 < grid.size()) {
+                if (getNode(new Coordinate(X + i, Y - 2)).isDangerOrInspector()) {
+                    getNode(new Coordinate(X + i, Y - 2)).setIsDetectedAsDanger(true);
                 }
             }
-            if (X - 2 >= 0 && X - 2 < grid.length && Y + i >= 0 && Y + i < grid.length) {
-                if(grid[X - 2][Y + i].isDangerOrInspector()) {
-                    grid[X - 2][Y + i].setIsDetectedAsDanger(true);
+            if (X - 2 >= 0 && X - 2 < grid.size() && Y + i >= 0 && Y + i < grid.size()) {
+                if (getNode(new Coordinate(X - 2, Y + i)).isDangerOrInspector()) {
+                    getNode(new Coordinate(X - 2, Y + i)).setIsDetectedAsDanger(true);
                 }
             }
-
-
         }
     }
 
@@ -524,7 +602,7 @@ class Grid {
                 }
 
                 Coordinate neighbor = new Coordinate(coordinate.getX() + i, coordinate.getY() + j);
-                if ((neighbor.getY() >= 0 && neighbor.getY() < grid.length) && (neighbor.getX() >= 0 && neighbor.getX() < grid.length)) {
+                if ((neighbor.getY() >= 0 && neighbor.getY() < grid.size()) && (neighbor.getX() >= 0 && neighbor.getX() < grid.size())) {
                     neighbors.add(neighbor);
                 }
             }
@@ -545,7 +623,7 @@ class Grid {
     }
 
     public Node getNode(Coordinate coordinate) {
-        return grid[coordinate.getX()][coordinate.getY()];
+        return grid.get(coordinate.getX()).get(coordinate.getY());
     }
 
     @Override
@@ -561,27 +639,28 @@ class Grid {
         final String ANSI_WHITE = "\u001B[37m";
         StringBuilder gridString = new StringBuilder();
 
-        for (int row = grid.length - 1; row >= 0; row--) {
-            for (int column = 0; column < grid.length; column++) {
+        for (int row = grid.size() - 1; row >= 0; row--) {
+            for (int column = 0; column < grid.size(); column++) {
                 int lengthOfNode;
+                Coordinate inverseCoordinate = new Coordinate(column, row);
 
-                if (path.contains(new Coordinate(column, row))) {
+                if (path.contains(inverseCoordinate)) {
                     gridString.append(ANSI_GREEN);
                 }
-                else if (grid[column][row].isDangerOrInspector()) {
+                else if (getNode(inverseCoordinate).isDangerOrInspector()) {
                     gridString.append(ANSI_RED);
                 }
                 else {
                     gridString.append(ANSI_WHITE);
                 }
 
-                if (path.contains(new Coordinate(column, row)) && !grid[column][row].containsCrucialElements()) {
-                    gridString.append(path.indexOf(new Coordinate(column, row)));
-                    lengthOfNode = Integer.toString(path.indexOf(new Coordinate(column, row))).length();
+                if (path.contains(inverseCoordinate) && !getNode(inverseCoordinate).containsCrucialElements()) {
+                    gridString.append(path.indexOf(inverseCoordinate));
+                    lengthOfNode = Integer.toString(path.indexOf(inverseCoordinate)).length();
                 }
                 else {
-                    gridString.append(grid[column][row]);
-                    lengthOfNode = grid[column][row].toString().length();
+                    gridString.append(getNode(inverseCoordinate));
+                    lengthOfNode = getNode(inverseCoordinate).toString().length();
                 }
                 gridString.append(ANSI_RESET);
 
@@ -596,12 +675,16 @@ class Grid {
         gridString.deleteCharAt(gridString.length() - 1);
         return gridString.toString();
     }
+
+    public int size() {
+        return grid.size();
+    }
 }
 
 class Solution {
-    static int sizeOfGrid = 6;
-    static int filchRadius = 1;
-    static int catRadius = 0;
+    static int sizeOfGrid = 9;
+    static int filchRadius = 2;
+    static int catRadius = 1;
 
     static class RandomInput {
         private static final int upperBound = Solution.sizeOfGrid;
