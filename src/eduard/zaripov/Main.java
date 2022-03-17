@@ -47,6 +47,63 @@ class HarryIsCapturedException extends Exception {
     }
 }
 
+class Perception{
+    private int radius;
+
+    public Perception(int radius) {
+        this.radius = radius;
+    }
+
+    public int getRadius() {
+        return radius;
+    }
+
+    public ArrayList<Coordinate> detectDangerNodes(Board board, Coordinate coordinate) {
+        ArrayList<Coordinate> dangerNodes = new ArrayList<>();
+        if (radius == 1) {
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    if (i == 0 && j == 0) {
+                        continue;
+                    }
+                    dangerNodes.add(new Coordinate(coordinate.getX() + i, coordinate.getY() + j));
+                }
+            }
+        }
+        else if (radius == 2) {
+            int X = coordinate.getX();
+            int Y = coordinate.getY();
+            for (int i = -1; i <= 1; i++) {
+                if (X + i >= 0 && X + i < board.size() && Y + 2 >= 0 && Y + 2 < board.size()) {
+                    if (board.getCell(new Coordinate(X + i, Y + 2)).isDangerOrInspector()) {
+                        dangerNodes.add(new Coordinate(X + i, Y + 2));
+                    }
+                }
+                if (X + 2 >= 0 && X + 2 < board.size() && Y + i >= 0 && Y + i < board.size()) {
+                    if (board.getCell(new Coordinate(X + 2, Y + i)).isDangerOrInspector()) {
+                        dangerNodes.add(new Coordinate(X + 2, Y + i));
+                    }
+                }
+                if (X + i >= 0 && X + i < board.size() && Y - 2 >= 0 && Y - 2 < board.size()) {
+                    if (board.getCell(new Coordinate(X + i, Y - 2)).isDangerOrInspector()) {
+                        dangerNodes.add(new Coordinate(X + i, Y - 2));
+                    }
+                }
+                if (X - 2 >= 0 && X - 2 < board.size() && Y + i >= 0 && Y + i < board.size()) {
+                    if (board.getCell(new Coordinate(X - 2, Y + i)).isDangerOrInspector()) {
+                        dangerNodes.add(new Coordinate(X - 2, Y + i));
+                    }
+                }
+            }
+        }
+        else {
+            throw new IllegalArgumentException("No support radius > 2");
+        }
+        return dangerNodes;
+    }
+
+}
+
 /**
  * Functional interface. User of this interface can find path from some position to the needed subject
  */
@@ -92,7 +149,7 @@ interface FindPathInterface {
      * @return  path as coordinates list
      * @throws HarryIsCapturedException   if Harry moved to danger node which was not detected previously
      */
-    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException;
+    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException;
 
     /**
      * Checks if the current coordinate is safe
@@ -123,35 +180,7 @@ interface FindPathInterface {
         return path;
     }
 
-    default ArrayList<Coordinate> detectDangerNodes(Board board, Coordinate coordinate) {
-        ArrayList<Coordinate> dangerNodes = new ArrayList<>();
 
-        int X = coordinate.getX();
-        int Y = coordinate.getY();
-        for (int i = -1; i <= 1; i++) {
-            if (X + i >= 0 && X + i < board.size() && Y + 2 >= 0 && Y + 2 < board.size()) {
-                if (board.getCell(new Coordinate(X + i, Y + 2)).isDangerOrInspector()) {
-                    dangerNodes.add(new Coordinate(X + i, Y + 2));
-                }
-            }
-            if (X + 2 >= 0 && X + 2 < board.size() && Y + i >= 0 && Y + i < board.size()){
-                if (board.getCell(new Coordinate(X + 2, Y + i)).isDangerOrInspector()) {
-                    dangerNodes.add(new Coordinate(X + 2, Y + i));
-                }
-            }
-            if (X + i >= 0 && X + i < board.size() && Y - 2 >= 0 && Y - 2 < board.size()) {
-                if (board.getCell(new Coordinate(X + i, Y - 2)).isDangerOrInspector()) {
-                    dangerNodes.add(new Coordinate(X + i, Y - 2));
-                }
-            }
-            if (X - 2 >= 0 && X - 2 < board.size() && Y + i >= 0 && Y + i < board.size()) {
-                if (board.getCell(new Coordinate(X - 2, Y + i)).isDangerOrInspector()) {
-                    dangerNodes.add(new Coordinate(X - 2, Y + i));
-                }
-            }
-        }
-        return dangerNodes;
-    }
 
     default ArrayList<Coordinate> getNeighbors(Coordinate coordinate, int sizeOfGrid) {
         ArrayList<Coordinate> neighbors = new ArrayList<>();
@@ -185,7 +214,7 @@ class Backtracking implements FindPathInterface {
     }
 
     @Override
-    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
         ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
         if (updateDetection) {
             detectedDangerNodes = new ArrayList<>();
@@ -211,7 +240,7 @@ class Backtracking implements FindPathInterface {
         return new ArrayList<>(minPath);
     }
 
-    private boolean findPathBacktrackingRecursive(int currentLength, Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, int mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException, InterruptedException {
+    private boolean findPathBacktrackingRecursive(int currentLength, Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException, InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Thread interrupted");
         }
@@ -230,9 +259,7 @@ class Backtracking implements FindPathInterface {
         }
         else {
             if (isSafe(board, startPosition, isInvisible)) {
-                if (mode == 2) {
-                    detectedDangerNodes.addAll(detectDangerNodes(board, startPosition));
-                }
+                detectedDangerNodes.addAll(mode.detectDangerNodes(board, startPosition));
 
                 Node nodeInStartPosition = cellsInfo.get(startPosition.getX()).get(startPosition.getY());
                 if (nodeInStartPosition.isPath()) {
@@ -261,7 +288,7 @@ class Backtracking implements FindPathInterface {
                 nodeInStartPosition.setIsPath(false);
             }
 
-            if (mode == 2 && !detectedDangerNodes.contains(startPosition)) {
+            if (!detectedDangerNodes.contains(startPosition)) {
                 throw new HarryIsCapturedException();
             }
 
@@ -320,7 +347,7 @@ class BFS implements FindPathInterface {
     private ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
 
     @Override
-    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
         Queue<Coordinate> queue = new LinkedList<>();
         if (updateDetection) {
             detectedDangerNodes = new ArrayList<>();
@@ -345,12 +372,12 @@ class BFS implements FindPathInterface {
                 return restorePath(cellsInfo, current);
             }
 
-            if (mode == 2) {
-                detectedDangerNodes.addAll(detectDangerNodes(board, current));
-            }
+
+            detectedDangerNodes.addAll(mode.detectDangerNodes(board, current));
+
 
             if (!isSafe(board, current, isInvisible)) {
-                if (mode == 2 && !detectedDangerNodes.contains(current)) {
+                if (!detectedDangerNodes.contains(current)) {
                     throw new HarryIsCapturedException();
                 }
                 continue;
@@ -443,9 +470,15 @@ class IO {
         return coordinates;
     }
 
-    public static Integer readHarryMode() {
+    public static Perception readHarryMode() {
         printString("Input mode of Harry vision:\n 1: Radius = 1\n 2: Radius = 2");
-        return checkAnswerCorrection(scanner.nextLine(), 1, 2);
+        int answer = checkAnswerCorrection(scanner.nextLine(), 1, 2);
+        if (answer == 1) {
+            return new Perception(1);
+        }
+        else {
+            return new Perception(2);
+        }
     }
 
     public static Integer readInputMode() {
@@ -758,14 +791,14 @@ class Solution {
     }
 
     Board board;
-    int mode;
+    Perception mode;
     Coordinate harryPosition;
     Coordinate cloakPosition;
     Coordinate bookPosition;
     Coordinate exitPosition;
     HashMap<ArrayList<TypeOfNode>, Boolean> allScenarios;
 
-    public Solution(ArrayList<Coordinate> inputCoordinates, int mode) throws IllegalArgumentException {
+    public Solution(ArrayList<Coordinate> inputCoordinates, Perception mode) throws IllegalArgumentException {
         this.harryPosition = inputCoordinates.get(0);
         this.bookPosition = inputCoordinates.get(3);
         this.cloakPosition = inputCoordinates.get(4);
@@ -791,7 +824,7 @@ class Solution {
         }
     }
 
-    public Solution(int mode) {
+    public Solution(Perception mode) {
         this(RandomInput.getRandomInputCoordinates(), mode);
     }
 
@@ -828,7 +861,7 @@ class Solution {
         return minPath;
     }
 
-    private ArrayList<ArrayList<Coordinate>> calculatePath(FindPathInterface typeOfSearch, Board board, int mode, ArrayList<TypeOfNode> scenario) throws HarryIsCapturedException {
+    private ArrayList<ArrayList<Coordinate>> calculatePath(FindPathInterface typeOfSearch, Board board, Perception mode, ArrayList<TypeOfNode> scenario) throws HarryIsCapturedException {
         boolean isCloakInPath = false;
         ArrayList<ArrayList<Coordinate>> overallScenarioPath = new ArrayList<>();
         Coordinate currentCheckpoint = harryPosition;
@@ -931,7 +964,7 @@ class StatisticsCalculator{
         }
     }
 
-    static LinkedList<Solution> createSample(int mode) {
+    static LinkedList<Solution> createSample(Perception mode) {
         LinkedList<Solution> sample = new LinkedList<>();
         for (int i = 0; i < numberOfExperiments; i++) {
             sample.add(new Solution(mode));
