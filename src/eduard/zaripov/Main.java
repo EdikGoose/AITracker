@@ -47,8 +47,22 @@ class HarryIsCapturedException extends Exception {
     }
 }
 
+/**
+ * For Harry's type of perception
+ * <p>He can see only nodes in coordinates that locates in radius across him. The crucial idea is that Harry cannot
+ * see nodes inside the rectangle of vision and also vertices of rectangle</p>
+ * <p>Example:(H - harry, V - he can see, D - he cannot see)</p>
+ * <p>D V V V D</p>
+ * <p>V D D D V</p>
+ * <p>V D H D V</p>
+ * <p>V D D D V</p>
+ * <p>D V V V D</p>
+ */
 class Perception{
-    private int radius;
+    /**
+     * Radius of view
+     */
+    private final int radius;
 
     public Perception(int radius) {
         this.radius = radius;
@@ -58,6 +72,12 @@ class Perception{
         return radius;
     }
 
+    /**
+     * Finds and check all nodes in radius of view
+     * @param board  info about nodes in coordinates
+     * @param coordinate  coordinate of Harry
+     * @return list of nodes detected as danger
+     */
     public ArrayList<Coordinate> detectDangerNodes(Board board, Coordinate coordinate) {
         ArrayList<Coordinate> dangerNodes = new ArrayList<>();
         if (radius == 1) {
@@ -97,6 +117,7 @@ class Perception{
             }
         }
         else {
+            // In case of future extension
             throw new IllegalArgumentException("No support radius > 2");
         }
         return dangerNodes;
@@ -140,7 +161,7 @@ interface FindPathInterface {
 
     /**
      * Finds path in input board from startPosition to the subjectToFind
-     * @param board  all info about nodes in coordinates
+     * @param board  all info about cells in coordinates
      * @param startPosition  position of start
      * @param subjectToFind  subject to find
      * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
@@ -153,7 +174,7 @@ interface FindPathInterface {
 
     /**
      * Checks if the current coordinate is safe
-     * @param board  all info about nodes in coordinates
+     * @param board  all info about cells in coordinates
      * @param coordinate  coordinate to check
      * @param isInvisible  Has Harry the cloak. If it has, the DANGER nodes will be safe for him
      * @return  true if it is safe for him
@@ -169,6 +190,13 @@ interface FindPathInterface {
                 (!board.getCell(coordinate).isDangerOrInspector());
     }
 
+    /**
+     * Construct path through the references to the previous coordinate in the {@link Node} class:
+     * <p>null <- First <- Second <- Third</p>
+     * @param cellsInfo
+     * @param coordinate
+     * @return path as a list of coordinates
+     */
     default ArrayList<Coordinate> restorePath(ArrayList<ArrayList<Node>> cellsInfo, Coordinate coordinate) {
         ArrayList<Coordinate> path = new ArrayList<>();
         while (cellsInfo.get(coordinate.getX()).get(coordinate.getY()).getPrevious() != null) {
@@ -180,17 +208,19 @@ interface FindPathInterface {
         return path;
     }
 
-
-
+    /**
+     * Finds all coordinates of neighbors of input coordianate that don't go off the map
+     * @param coordinate  current coordinate
+     * @param sizeOfGrid  size of map to check validity of neighbors
+     * @return all neighbors as a list of coordinates
+     */
     default ArrayList<Coordinate> getNeighbors(Coordinate coordinate, int sizeOfGrid) {
         ArrayList<Coordinate> neighbors = new ArrayList<>();
-
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
                 if (i == 0 && j == 0) {
                     continue;
                 }
-
                 Coordinate neighbor = new Coordinate(coordinate.getX() + i, coordinate.getY() + j);
                 if ((neighbor.getY() >= 0 && neighbor.getY() < sizeOfGrid) && (neighbor.getX() >= 0 && neighbor.getX() < sizeOfGrid)) {
                     neighbors.add(neighbor);
@@ -202,10 +232,26 @@ interface FindPathInterface {
     }
 }
 
+/**
+ * Recursive algorithm for finding path from coordinate to type of node(For example: from (0,0) to book)
+ * <p>On each step of recursion:</p>
+ * <p>* It checks if the node is final. If it is, return true</p>
+ * <p>* Then it take neighbor coordinate </p>
+ * <p>* If there is no accessible neighbor coordinate, returns back to previous step</p>
+ */
 class Backtracking implements FindPathInterface {
+    /**
+     * Define if algorithm finds the first right way or the shortest
+     */
     private final boolean isTheShortestPathNeeded;
 
+    /**
+     * For save detected nodes if we have complex path. For example: start -> book -> exit
+     */
     private ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
+    /**
+     * Min length founded length path
+     */
     private int minLengthPath = Integer.MAX_VALUE;
     private ArrayList<Coordinate> minPath = new ArrayList<>();
 
@@ -213,6 +259,17 @@ class Backtracking implements FindPathInterface {
         this.isTheShortestPathNeeded = isTheShortestPathNeeded;
     }
 
+    /**
+     * Initialize all needed fields and run recursive algorithm
+     * @param board  all info about cells in coordinates
+     * @param startPosition  position of start
+     * @param subjectToFind  subject to find
+     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
+     * @param mode  Type of perception of harry vision
+     * @param updateDetection  If true clear all detected nodes as danger
+     * @return path as a list of coordinates or null if there is no path
+     * @throws HarryIsCapturedException
+     */
     @Override
     public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
         ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
@@ -240,6 +297,20 @@ class Backtracking implements FindPathInterface {
         return new ArrayList<>(minPath);
     }
 
+    /**
+     * Recursive algorithm
+     * @param currentLength the depth of recursive which is also current length of path
+     * @param board  all info about cells in coordinates
+     * @param cellsInfo  all info node in cells
+     * @param startPosition
+     * @param subjectToFind
+     * @param isInvisible  is Harry have a cloak
+     * @param mode  perception mode of Harry
+     * @param detectedDangerNodes  current detected danger nodes
+     * @return true if there is path or false if there is no path
+     * @throws HarryIsCapturedException
+     * @throws InterruptedException
+     */
     private boolean findPathBacktrackingRecursive(int currentLength, Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException, InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Thread interrupted");
@@ -296,7 +367,13 @@ class Backtracking implements FindPathInterface {
         return false;
     }
 
-
+    /**
+     * Finds sequence of neighbors node. If we know the end position, it can optimize backtracking
+     * @param startPosition
+     * @param endPosition
+     * @param sizeOfGrid
+     * @return list of neighbors node
+     */
     private LinkedList<Coordinate> getOperationSequence(Coordinate startPosition, Coordinate endPosition, int sizeOfGrid) {
         LinkedList<Coordinate> priority = new LinkedList<>();
         LinkedList<Integer> priorityX = new LinkedList<>();
@@ -343,9 +420,26 @@ class Backtracking implements FindPathInterface {
 
 }
 
+/**
+ * Algorithm for finding the shortest path from coordinate to subject using Breadth-First search algorithm
+ */
 class BFS implements FindPathInterface {
+    /**
+     * For save detected nodes if we have complex path. For example: start -> book -> exit
+     */
     private ArrayList<Coordinate> detectedDangerNodes = new ArrayList<>();
 
+    /**
+     * Iterative algorithm that use queue.
+     * @param board  all info about cells in coordinates
+     * @param startPosition  position of start
+     * @param subjectToFind  subject to find
+     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
+     * @param mode  Type of perception of harry vision
+     * @param updateDetection  If true clear all detected nodes as danger
+     * @return path as a list of coordinates or null if there is no path
+     * @throws HarryIsCapturedException
+     */
     @Override
     public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
         Queue<Coordinate> queue = new LinkedList<>();
@@ -402,10 +496,18 @@ class BFS implements FindPathInterface {
 
 }
 
+/**
+ * Keeps coordinate of point as (X,Y)
+ */
 class Coordinate implements Comparable<Coordinate>{
     private final int X;
     private final int Y;
 
+    /**
+     * Creates coordinate in (X,Y)
+     * @param x  number of column
+     * @param y  number of row
+     */
     public Coordinate(int x, int y) {
         X = x;
         Y = y;
@@ -419,6 +521,9 @@ class Coordinate implements Comparable<Coordinate>{
         return Y;
     }
 
+    /**
+     * Equals if the x and y equals
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -432,6 +537,11 @@ class Coordinate implements Comparable<Coordinate>{
         return "X=" + X +", Y=" + Y;
     }
 
+    /**
+     * Parse string in format of "[X,Y]"
+     * @param coordinatesInString  string to parse
+     * @return new Coordinate
+     */
     public static Coordinate deserialize(String coordinatesInString) {
         String[] split = coordinatesInString.split(",");
         int X = Integer.parseInt(split[0].substring(1));
@@ -940,7 +1050,7 @@ class StatisticsCalculator{
         * For time -
      */
 
-    private static final int numberOfExperiments = 100;
+    private static final int numberOfExperiments = 10;
 
     static class ResultOfExperiment {
         long time;
@@ -1072,13 +1182,13 @@ public class Main {
         String file4 = "samples/sampleForBFSVar2";
 
 
-//        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(1);
-//        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(true));
-//        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
-//
-//        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(2);
-//        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
-//        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
+        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
+        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(true));
+        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
+
+        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
+        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
+        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
 
         LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
         LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
