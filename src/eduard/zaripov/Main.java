@@ -851,7 +851,7 @@ class Solution {
                 }
             }
             catch (HarryIsCapturedException e) {
-                // IO.printString(e.getMessage());
+                 IO.printString(e.getMessage());
                 return new ArrayList<>();
             }
         }
@@ -1049,7 +1049,7 @@ class StatisticsCalculator{
 
 public class Main {
     private static void printInfoAboutPath(Solution solution, ArrayList<ArrayList<Coordinate>> path, String nameOfAlgorithm, long elapsedTime) {
-        IO.printString("Path by " + nameOfAlgorithm);
+        IO.printString("Path by: " + nameOfAlgorithm);
         if (path.size() == 0) {
             IO.printString("There is no path");
             IO.printString("Lose");
