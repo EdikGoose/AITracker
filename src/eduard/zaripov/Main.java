@@ -1,42 +1,67 @@
 package eduard.zaripov;
 
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Simple inheritor of Exception to signalize about incorrect input coordinates on the board
+ * <p> It has two fields of TypeOfNode type for indicating which node create this exception</p>
+ * <p> It checked exception -> it is needed to handle</p>
+ */
 class IllegalInputCoordinate extends Exception {
     TypeOfNode first;
     TypeOfNode second;
 
+    /**
+     * Constructs an IllegalInputCoordinate with input types of node
+     * @param first  the first node in the correct position
+     * @param second  the second node in the correct position
+     */
     public IllegalInputCoordinate(TypeOfNode first, TypeOfNode second) {
         super();
         this.first = first;
         this.second = second;
     }
 
+    /**
+     * @return  string with incorrect nodes
+     */
     @Override
     public String getMessage() {
         return TypeOfNode.toString(first) + " cannot be at the same coordinate as " + TypeOfNode.toString(second);
     }
 }
 
+/**
+ * Simple inheritor of Exception to signalize about Harry's captured
+ */
 class HarryIsCapturedException extends Exception {
-    private final ArrayList<Coordinate> capturedPath;
-
-    public HarryIsCapturedException(ArrayList<Coordinate> capturedPath) {
-        this.capturedPath = capturedPath;
-    }
-
+    /**
+     * @return  simple message
+     */
     @Override
     public String getMessage() {
         return "Harry is captured";
     }
 }
 
-
+/**
+ * Functional interface. User of this interface can find path from some position to the needed subject
+ */
 interface FindPathInterface {
+    /**
+     * Inner class for finding paths
+     */
     class Node {
+        /**
+         * Contains reference to the previous coordinate in path. The previous field of the first coordinate in path should be null
+         */
         private Coordinate previous = null;
+        /**
+         * Contains a flag whether the node has been visited
+         */
         private Boolean isPath = false;
 
         public Coordinate getPrevious() {
@@ -56,8 +81,26 @@ interface FindPathInterface {
         }
     }
 
+    /**
+     * Finds path in input board from startPosition to the subjectToFind
+     * @param board  all info about nodes in coordinates
+     * @param startPosition  position of start
+     * @param subjectToFind  subject to find
+     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
+     * @param mode  Type of perception of harry vision
+     * @param updateDetection  If true clear all detected nodes as danger
+     * @return  path as coordinates list
+     * @throws HarryIsCapturedException   if Harry moved to danger node which was not detected previously
+     */
     ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, int mode, boolean updateDetection) throws HarryIsCapturedException;
 
+    /**
+     * Checks if the current coordinate is safe
+     * @param board  all info about nodes in coordinates
+     * @param coordinate  coordinate to check
+     * @param isInvisible  Has Harry the cloak. If it has, the DANGER nodes will be safe for him
+     * @return  true if it is safe for him
+     */
     default boolean isSafe(Board board, Coordinate coordinate, boolean isInvisible) {
         if (isInvisible) {
             return (coordinate.getY() >= 0 && coordinate.getY() < board.size()) &&
@@ -219,7 +262,7 @@ class Backtracking implements FindPathInterface {
             }
 
             if (mode == 2 && !detectedDangerNodes.contains(startPosition)) {
-                throw new HarryIsCapturedException(restorePath(cellsInfo, startPosition));
+                throw new HarryIsCapturedException();
             }
 
         }
@@ -308,7 +351,7 @@ class BFS implements FindPathInterface {
 
             if (!isSafe(board, current, isInvisible)) {
                 if (mode == 2 && !detectedDangerNodes.contains(current)) {
-                    throw new HarryIsCapturedException(restorePath(cellsInfo, current));
+                    throw new HarryIsCapturedException();
                 }
                 continue;
             }
@@ -380,13 +423,13 @@ class Coordinate implements Comparable<Coordinate>{
 
 class IO {
     private static final Scanner scanner = new Scanner(System.in);
-
-    static ArrayList<Coordinate> readCoordinates() throws NumberFormatException {
+    
+    public static ArrayList<Coordinate> readCoordinates() throws NumberFormatException {
         printString("Input 6 coordinates in format [x1,y1] [x2,y2] ... ");
         return parseCoordinates(scanner.nextLine());
     }
 
-    static ArrayList<Coordinate> parseCoordinates(String inputString) throws NumberFormatException {
+    public static ArrayList<Coordinate> parseCoordinates(String inputString) throws NumberFormatException {
         String[] stringCoordinates = inputString.split(" ");
         ArrayList<Coordinate> coordinates = new ArrayList<>();
 
@@ -400,23 +443,23 @@ class IO {
         return coordinates;
     }
 
-    static Integer readHarryMode() {
+    public static Integer readHarryMode() {
         printString("Input mode of Harry vision:\n 1: Radius = 1\n 2: Radius = 2");
         return checkAnswerCorrection(scanner.nextLine(), 1, 2);
     }
 
-    static Integer readInputMode() {
+    public static Integer readInputMode() {
         printString("Input mode:\n 1: Keyboard\n 2: Random");
         return checkAnswerCorrection(scanner.nextLine(), 1, 2);
     }
 
-    static boolean readBacktrackingMode() {
+    public static boolean readBacktrackingMode() {
         printString("Backtracking finds the shortest path? (If not, it will find the first compatible)\n (1 - Yes, 2 - No)");
         int answer = checkAnswerCorrection(scanner.nextLine(), 1, 2);
         return answer == 1;
     }
 
-    static int readMaxTimeout() {
+    public static int readMaxTimeout() {
         printString("Input max timeout(in seconds) of backtracking. (Backtracking can work too long)");
         return scanner.nextInt();
     }
@@ -429,11 +472,11 @@ class IO {
         return answer;
     }
 
-    static void newLine() {
+    public static void newLine() {
         System.out.println();
     }
 
-    static void printString(String string) {
+    public static void printString(String string) {
         System.out.println(string);
     }
 
@@ -566,7 +609,7 @@ class Board{
         if (getCell(startPosition).isDangerOrInspector()) {
             ArrayList<Coordinate> capturedPath = new ArrayList<>();
             capturedPath.add(startPosition);
-            throw new HarryIsCapturedException(capturedPath);
+            throw new HarryIsCapturedException();
         }
     }
 
@@ -692,7 +735,7 @@ class Solution {
             for (Coordinate coordinate : coordinates) {
                 stringVersion.append("[").append(coordinate.getX()).append(",").append(coordinate.getY()).append("]").append(" ");
             }
-            IO.printString(stringVersion.toString());
+            //IO.printString(stringVersion.toString());
 
             return coordinates;
         }
@@ -851,6 +894,126 @@ class Solution {
     }
 }
 
+class StatisticsCalculator{
+    /*
+    Backtracking (variant 1) compared to 2nd algorithm (variant 1)
+        * For time - BacktrackingShortest
+        * For steps - Backtracking
+    Backtracking (variant 2) compared to 2nd algorithm (variant 2)
+        * For winrate - Backtracking
+    Backtracking (variant 1) compared to Backtracking (variant 2)
+        * For steps - Backtracking
+    2nd algorithm (variant 1) compared to 2nd algorithm (variant 2)
+        * For time -
+     */
+
+    private static final int numberOfExperiments = 100;
+
+    static class ResultOfExperiment {
+        long time;
+        int numberOfSteps;
+        boolean isWin;
+
+        public ResultOfExperiment(int numberOfSteps, long time, String isWin) {
+            this.time = time;
+            this.numberOfSteps = numberOfSteps;
+            this.isWin = isWin.equals("w");
+        }
+
+        public static ResultOfExperiment parseString(String str) {
+            String[] words = str.split(" ");
+            return new ResultOfExperiment(Integer.parseInt(words[0]), Integer.parseInt(words[1]), words[2]);
+        }
+
+        @Override
+        public String toString() {
+            return numberOfSteps + " " + time + " " + isWin;
+        }
+    }
+
+    static LinkedList<Solution> createSample(int mode) {
+        LinkedList<Solution> sample = new LinkedList<>();
+        for (int i = 0; i < numberOfExperiments; i++) {
+            sample.add(new Solution(mode));
+        }
+
+        return sample;
+    }
+
+
+    static void startExperiments(LinkedList<Solution> sample, String pathToFile, int mode, FindPathInterface typeOfSearch) throws ExecutionException, InterruptedException {
+        try {
+            FileWriter writer = new FileWriter(pathToFile);
+            writer.write("# [length time win]\n");
+
+            for (Solution solution : sample) {
+                int maxTimeoutOfBacktracking = 1;
+                boolean isTimeout = false;
+
+                ExecutorService service = Executors.newSingleThreadExecutor();
+                Future<Integer> future = service.submit(() -> Main.calculatePathLength(solution.findPath(typeOfSearch)));
+                try {
+                    long startStamp = System.currentTimeMillis();
+                    int length = future.get(maxTimeoutOfBacktracking, TimeUnit.SECONDS);
+                    long endStamp = System.currentTimeMillis();
+
+                    String result = length == 0 ? "l" : "w";
+                    writer.write(length + " " + (endStamp - startStamp) + " " + result + "\n");
+                }
+                catch (TimeoutException e) {
+                    future.cancel(true);
+                }
+                service.shutdownNow();
+            }
+            writer.close();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    static double getMedianOfTime(LinkedList<ResultOfExperiment> results) {
+        int sum = 0;
+        for (ResultOfExperiment result : results) {
+            sum += result.time;
+        }
+        return sum / (double) results.size();
+    }
+
+    static double getMedianOfLength(LinkedList<ResultOfExperiment> results) {
+        int numberOfSteps = 0;
+        for (ResultOfExperiment result : results) {
+            numberOfSteps += result.numberOfSteps;
+        }
+        return numberOfSteps / (double) results.size();
+    }
+
+    static double getWinRate(LinkedList<ResultOfExperiment> results) {
+        int wins = 0;
+        for (ResultOfExperiment result : results) {
+            if (result.isWin) {
+                wins++;
+            }
+        }
+        return wins / (double) results.size();
+    }
+
+    static LinkedList<ResultOfExperiment> parseResultsFromFile(String fileName) throws FileNotFoundException {
+        Scanner scanner = new Scanner(new FileReader(fileName));
+        LinkedList<StatisticsCalculator.ResultOfExperiment> results = new LinkedList<>();
+        while (scanner.hasNext()) {
+            String row = scanner.nextLine();
+            if (row.charAt(0) == '#') {
+                continue;
+            }
+            StatisticsCalculator.ResultOfExperiment result = StatisticsCalculator.ResultOfExperiment.parseString(row);
+            results.add(result);
+        }
+        return results;
+    }
+}
+
+
 public class Main {
     private static void printInfoAboutPath(Solution solution, ArrayList<ArrayList<Coordinate>> path, String nameOfAlgorithm, long elapsedTime) {
         IO.printString("Path by " + nameOfAlgorithm);
@@ -859,11 +1022,7 @@ public class Main {
             IO.printString("Lose");
         }
         else {
-            int length = 0;
-            for (ArrayList<Coordinate> partOfThePath : path) {
-                length += partOfThePath.size();
-                length--;
-            }
+            int length = calculatePathLength(path);
 
             IO.printString("Length of the path: " + length);
             IO.printString(solution.toString(path));
@@ -871,7 +1030,29 @@ public class Main {
         }
     }
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+
+
+    public static void main(String[] args) throws ExecutionException, InterruptedException, FileNotFoundException {
+        String file1 = "samples/sampleForBacktrackingVar1";
+        String file2 = "samples/sampleForBFSVar1";
+        String file3 = "samples/sampleForBacktrackingVar2";
+        String file4 = "samples/sampleForBFSVar2";
+
+
+//        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(1);
+//        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(true));
+//        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
+//
+//        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(2);
+//        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
+//        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
+
+        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
+        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
+        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
+        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
+
+
         try {
             int inputMode = IO.readInputMode();
             Solution solution;
@@ -892,16 +1073,14 @@ public class Main {
             AtomicReference<ArrayList<ArrayList<Coordinate>>> pathBacktracking = new AtomicReference<>(new ArrayList<>());
 
             ExecutorService service = Executors.newSingleThreadExecutor();
-            Future<?> future = service.submit(() -> {
-                pathBacktracking.set(solution.findPath(new Backtracking(isBacktrackingFindShortestPath)));
-            });
+            Future<?> future = service.submit(() -> pathBacktracking.set(solution.findPath(new Backtracking(isBacktrackingFindShortestPath))));
             try {
-                System.out.println("Backtracking started..");
+                IO.printString("Backtracking started..");
                 future.get(maxTimeoutOfBacktracking, TimeUnit.SECONDS);
             }
             catch (TimeoutException e) {
                 future.cancel(true);
-                System.out.println("Timeout!");
+                IO.printString("Timeout!");
             }
             service.shutdownNow();
             long endStamp = System.currentTimeMillis();
@@ -915,9 +1094,20 @@ public class Main {
             printInfoAboutPath(solution, pathBFS, "BFS", endStamp - startStamp);
         }
         catch (NumberFormatException | IndexOutOfBoundsException e) {
-            System.out.println("Illegal input: " + e.getMessage());
+            IO.printString("Illegal input: " + e.getMessage());
             main(null);
         }
 
+
+
+    }
+
+    public static int calculatePathLength(ArrayList<ArrayList<Coordinate>> path) {
+        int length = 0;
+        for (ArrayList<Coordinate> partOfThePath : path) {
+            length += partOfThePath.size();
+            length--;
+        }
+        return length;
     }
 }
