@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 class IllegalInputCoordinate extends Exception {
     TypeOfCell first;
     TypeOfCell second;
+    String message;
 
     /**
      * Constructs an IllegalInputCoordinate with input types of node
@@ -23,10 +24,12 @@ class IllegalInputCoordinate extends Exception {
         super();
         this.first = first;
         this.second = second;
+        this.message = "";
     }
 
-    public IllegalInputCoordinate() {
+    public IllegalInputCoordinate(String message) {
         super();
+        this.message = message;
     }
 
     /**
@@ -36,7 +39,7 @@ class IllegalInputCoordinate extends Exception {
     @Override
     public String getMessage() {
         if (first == null || second == null) {
-            return "index out of bounds of board";
+            return message;
         }
         return TypeOfCell.toString(first) + " cannot be at the same coordinate as " + TypeOfCell.toString(second);
     }
@@ -74,10 +77,6 @@ class Perception{
 
     public Perception(int radius) {
         this.radius = radius;
-    }
-
-    public int getRadius() {
-        return radius;
     }
 
     /**
@@ -201,8 +200,8 @@ interface FindPathInterface {
     /**
      * Construct path through the references to the previous coordinate in the {@link Node} class:
      * <p>null <- First <- Second <- Third</p>
-     * @param cellsInfo
-     * @param coordinate
+     * @param cellsInfo all nodes as a list
+     * @param coordinate last coordinate of path
      * @return path as a list of coordinates
      */
     default ArrayList<Coordinate> restorePath(ArrayList<ArrayList<Node>> cellsInfo, Coordinate coordinate) {
@@ -276,7 +275,7 @@ class Backtracking implements FindPathInterface {
      * @param mode  Type of perception of harry vision
      * @param updateDetection  If true clear all detected nodes as danger
      * @return path as a list of coordinates or null if there is no path
-     * @throws HarryIsCapturedException
+     * @throws HarryIsCapturedException if Harry lose
      */
     @Override
     public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
@@ -310,16 +309,15 @@ class Backtracking implements FindPathInterface {
      * @param currentLength the depth of recursive which is also current length of path
      * @param board  all info about cells in coordinates
      * @param cellsInfo  all info node in cells
-     * @param startPosition
-     * @param subjectToFind
      * @param isInvisible  is Harry have a cloak
      * @param mode  perception mode of Harry
      * @param detectedDangerNodes  current detected danger nodes
      * @return true if there is path or false if there is no path
-     * @throws HarryIsCapturedException
-     * @throws InterruptedException
+     * @throws HarryIsCapturedException if Harry lose
+     * @throws InterruptedException if timeout of backtracking working
      */
     private boolean findPathBacktrackingRecursive(int currentLength, Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException, InterruptedException {
+        // It is needed for limit time of backtracking working
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Thread interrupted");
         }
@@ -377,9 +375,6 @@ class Backtracking implements FindPathInterface {
 
     /**
      * Finds sequence of neighbors node. If we know the end position, it can optimize backtracking
-     * @param startPosition
-     * @param endPosition
-     * @param sizeOfGrid
      * @return list of neighbors node
      */
     private LinkedList<Coordinate> getOperationSequence(Coordinate startPosition, Coordinate endPosition, int sizeOfGrid) {
@@ -446,7 +441,7 @@ class BFS implements FindPathInterface {
      * @param mode  Type of perception of harry vision
      * @param updateDetection  If true clear all detected nodes as danger
      * @return path as a list of coordinates or null if there is no path
-     * @throws HarryIsCapturedException
+     * @throws HarryIsCapturedException if Harry lose
      */
     @Override
     public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
@@ -809,8 +804,7 @@ class Board{
     /**
      * Creates board with input coordinates
      * @param radiusOfStrongInspector strong = with greater radius
-     * @throws IllegalInputCoordinate if
-     * @throws HarryIsCapturedException
+     * @throws IllegalInputCoordinate if the coordinate is incorrect of crucial subjects are in the danger zone
      */
     public Board(int sizeOfGrid,
                  int radiusOfStrongInspector,
@@ -895,6 +889,11 @@ class Board{
         getCell(coordinate).addTypeOfNode(TypeOfCell.INSPECTOR);
     }
 
+    /**
+     * Map coordinate to cell
+     * @param coordinate to map
+     * @return cell in this coordinate
+     */
     public Cell getCell(Coordinate coordinate) {
         return grid.get(coordinate.getX()).get(coordinate.getY());
     }
@@ -1058,10 +1057,14 @@ class Solution {
     /**
      * Scenario - sequence of crucial cell to find. Example of scenario:
      * <p> HARRY -> CLOAK -> BOOK -> EXIT</p>
+     * Each scenario maps to bool in case of optimization. If the scenario maps to bool, it means that there is no path for this scenario
      */
     HashMap<ArrayList<TypeOfCell>, Boolean> allScenarios;
 
-    public Solution(ArrayList<Coordinate> inputCoordinates, Perception mode) throws IllegalArgumentException {
+    /**
+     * Constructs a Solution class with input coordinates and mode
+     */
+    public Solution(ArrayList<Coordinate> inputCoordinates, Perception mode) throws IllegalArgumentException, IllegalInputCoordinate {
         this.harryPosition = inputCoordinates.get(0);
         this.bookPosition = inputCoordinates.get(3);
         this.cloakPosition = inputCoordinates.get(4);
@@ -1069,10 +1072,6 @@ class Solution {
 
         try {
             this.board = new Board(sizeOfGrid, filchRadius, catRadius, harryPosition, inputCoordinates.get(1), inputCoordinates.get(2), bookPosition, cloakPosition, exitPosition);
-        }
-        catch (IllegalInputCoordinate e) {
-            IO.printString(e.getMessage());
-            System.exit(1);
         }
         catch (HarryIsCapturedException e) {
             IO.printString(e.getMessage() + ". He is spawned inside the danger zone");
@@ -1087,13 +1086,24 @@ class Solution {
         }
     }
 
-    public Solution(Perception mode) {
+    /**
+     * Constructs a Solution class with random coordinate and input mode
+     */
+    public Solution(Perception mode) throws IllegalInputCoordinate {
         this(RandomInput.getRandomInputCoordinates(), mode);
     }
 
+    /**
+     * Finding path from start to book and then to exit(using or not using cloak) {@link FindPathInterface}
+     * It checks each scenario and find the shortest variant.
+     * @param typeOfSearch input type of search
+     * @return path divided in parts. If the path is empty -> there is no path
+     * <p>for example: path HARRY -> BOOK -> EXIT will be divided into paths: HARRY -> BOOK and BOOK -> EXIT</p>
+     */
     public ArrayList<ArrayList<Coordinate>> findPath(FindPathInterface typeOfSearch) {
         ArrayList<ArrayList<Coordinate>> minPath = null;
         int minLength = Integer.MAX_VALUE;
+
         for(ArrayList<TypeOfCell> scenario : allScenarios.keySet()) {
             try {
                 ArrayList<ArrayList<Coordinate>> path = calculatePath(typeOfSearch, board, mode, scenario);
@@ -1114,7 +1124,7 @@ class Solution {
                 }
             }
             catch (HarryIsCapturedException e) {
-                 IO.printString(e.getMessage());
+                IO.printString(e.getMessage());
                 return new ArrayList<>();
             }
         }
@@ -1124,6 +1134,10 @@ class Solution {
         return minPath;
     }
 
+    /**
+     * Calculates path for input scenario
+     * @param scenario as a list of types of cell
+     */
     private ArrayList<ArrayList<Coordinate>> calculatePath(FindPathInterface typeOfSearch, Board board, Perception mode, ArrayList<TypeOfCell> scenario) throws HarryIsCapturedException {
         boolean isCloakInPath = false;
         ArrayList<ArrayList<Coordinate>> overallScenarioPath = new ArrayList<>();
@@ -1151,6 +1165,9 @@ class Solution {
         return overallScenarioPath;
     }
 
+    /**
+     * @return list of possible scenario. Each scenario is the list of cell's type in current order
+     */
     private ArrayList<ArrayList<TypeOfCell>> getAllPossibleScenarios() {
         ArrayList<ArrayList<TypeOfCell>> allScenarios = new ArrayList<>();
 
@@ -1169,6 +1186,11 @@ class Solution {
         return allScenarios;
     }
 
+    /**
+     * Using input path and board creates string
+     * @param path to view
+     * @return creates string
+     */
     public String toString(ArrayList<ArrayList<Coordinate>> path) {
         StringBuilder output = new StringBuilder();
 
@@ -1180,10 +1202,12 @@ class Solution {
             output.append(board.toString(currentPath)).append("\n");
         }
 
-
         return output.substring(0, output.length() - 1);
     }
 
+    /**
+     * @return just board in string
+     */
     @Override
     public String toString() {
         return board.toString();
@@ -1191,19 +1215,7 @@ class Solution {
 }
 
 class StatisticsCalculator{
-    /*
-    Backtracking (variant 1) compared to 2nd algorithm (variant 1)
-        * For time - BacktrackingShortest
-        * For steps - Backtracking
-    Backtracking (variant 2) compared to 2nd algorithm (variant 2)
-        * For winrate - Backtracking
-    Backtracking (variant 1) compared to Backtracking (variant 2)
-        * For steps - Backtracking
-    2nd algorithm (variant 1) compared to 2nd algorithm (variant 2)
-        * For time -
-     */
-
-    private static final int numberOfExperiments = 10;
+    private static final int numberOfExperiments = 50;
 
     static class ResultOfExperiment {
         long time;
@@ -1230,7 +1242,11 @@ class StatisticsCalculator{
     static LinkedList<Solution> createSample(Perception mode) {
         LinkedList<Solution> sample = new LinkedList<>();
         for (int i = 0; i < numberOfExperiments; i++) {
-            sample.add(new Solution(mode));
+            try {
+                sample.add(new Solution(mode));
+            } catch (IllegalInputCoordinate e) {
+                e.printStackTrace();
+            }
         }
 
         return sample;
@@ -1243,8 +1259,7 @@ class StatisticsCalculator{
             writer.write("# [length time win]\n");
 
             for (Solution solution : sample) {
-                int maxTimeoutOfBacktracking = 1;
-                boolean isTimeout = false;
+                int maxTimeoutOfBacktracking = 3;
 
                 ExecutorService service = Executors.newSingleThreadExecutor();
                 Future<Integer> future = service.submit(() -> Main.calculatePathLength(solution.findPath(typeOfSearch)));
@@ -1329,25 +1344,25 @@ public class Main {
 
 
     public static void main(String[] args) throws ExecutionException, InterruptedException, FileNotFoundException {
-//        String file1 = "samples/sampleForBacktrackingVar1";
-//        String file2 = "samples/sampleForBFSVar1";
-//        String file3 = "samples/sampleForBacktrackingVar2";
-//        String file4 = "samples/sampleForBFSVar2";
-//
-//
-//        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
-//        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(true));
-//        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
-//
-//        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
-//        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
-//        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
-//
-//        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
-//        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
-//        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
-//        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
-//
+        String file1 = "samples/sampleForBacktrackingVar1";
+        String file2 = "samples/sampleForBFSVar1";
+        String file3 = "samples/sampleForBacktrackingVar2";
+        String file4 = "samples/sampleForBFSVar2";
+
+
+        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
+        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(false));
+        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
+
+        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
+        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
+        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
+
+        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
+        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
+        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
+        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
+
 
         try {
             int inputMode = IO.readInputMode();
@@ -1368,13 +1383,14 @@ public class Main {
             long startStamp = System.currentTimeMillis();
             AtomicReference<ArrayList<ArrayList<Coordinate>>> pathBacktracking = new AtomicReference<>(new ArrayList<>());
 
+            // For timeout tracking
             ExecutorService service = Executors.newSingleThreadExecutor();
             Future<?> future = service.submit(() -> pathBacktracking.set(solution.findPath(new Backtracking(isBacktrackingFindShortestPath))));
             try {
                 IO.printString("Backtracking started..");
                 future.get(maxTimeoutOfBacktracking, TimeUnit.SECONDS);
             }
-            catch (TimeoutException e) {
+            catch (TimeoutException e) { // if there is timeout
                 future.cancel(true);
                 IO.printString("Timeout!");
             }
@@ -1389,7 +1405,7 @@ public class Main {
             endStamp = System.currentTimeMillis();
             printInfoAboutPath(solution, pathBFS, "BFS", endStamp - startStamp);
         }
-        catch (NumberFormatException | IndexOutOfBoundsException e) {
+        catch (NumberFormatException | IllegalInputCoordinate e) {
             IO.printString("Illegal input: " + e.getMessage());
             main(null);
         }
