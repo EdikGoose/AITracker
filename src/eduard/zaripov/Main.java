@@ -11,26 +11,34 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p> It checked exception -> it is needed to handle</p>
  */
 class IllegalInputCoordinate extends Exception {
-    TypeOfNode first;
-    TypeOfNode second;
+    TypeOfCell first;
+    TypeOfCell second;
 
     /**
      * Constructs an IllegalInputCoordinate with input types of node
      * @param first  the first node in the correct position
      * @param second  the second node in the correct position
      */
-    public IllegalInputCoordinate(TypeOfNode first, TypeOfNode second) {
+    public IllegalInputCoordinate(TypeOfCell first, TypeOfCell second) {
         super();
         this.first = first;
         this.second = second;
     }
 
+    public IllegalInputCoordinate() {
+        super();
+    }
+
     /**
-     * @return  string with incorrect nodes
+     * @return
+     * string with incorrect nodes
      */
     @Override
     public String getMessage() {
-        return TypeOfNode.toString(first) + " cannot be at the same coordinate as " + TypeOfNode.toString(second);
+        if (first == null || second == null) {
+            return "index out of bounds of board";
+        }
+        return TypeOfCell.toString(first) + " cannot be at the same coordinate as " + TypeOfCell.toString(second);
     }
 }
 
@@ -164,13 +172,13 @@ interface FindPathInterface {
      * @param board  all info about cells in coordinates
      * @param startPosition  position of start
      * @param subjectToFind  subject to find
-     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
+     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfCell}
      * @param mode  Type of perception of harry vision
      * @param updateDetection  If true clear all detected nodes as danger
      * @return  path as coordinates list
      * @throws HarryIsCapturedException   if Harry moved to danger node which was not detected previously
      */
-    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException;
+    ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException;
 
     /**
      * Checks if the current coordinate is safe
@@ -264,14 +272,14 @@ class Backtracking implements FindPathInterface {
      * @param board  all info about cells in coordinates
      * @param startPosition  position of start
      * @param subjectToFind  subject to find
-     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
+     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfCell}
      * @param mode  Type of perception of harry vision
      * @param updateDetection  If true clear all detected nodes as danger
      * @return path as a list of coordinates or null if there is no path
      * @throws HarryIsCapturedException
      */
     @Override
-    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
         ArrayList<ArrayList<Node>> cellsInfo = new ArrayList<>();
         if (updateDetection) {
             detectedDangerNodes = new ArrayList<>();
@@ -311,7 +319,7 @@ class Backtracking implements FindPathInterface {
      * @throws HarryIsCapturedException
      * @throws InterruptedException
      */
-    private boolean findPathBacktrackingRecursive(int currentLength, Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException, InterruptedException {
+    private boolean findPathBacktrackingRecursive(int currentLength, Board board, ArrayList<ArrayList<Node>> cellsInfo, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, ArrayList<Coordinate> detectedDangerNodes) throws HarryIsCapturedException, InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Thread interrupted");
         }
@@ -434,14 +442,14 @@ class BFS implements FindPathInterface {
      * @param board  all info about cells in coordinates
      * @param startPosition  position of start
      * @param subjectToFind  subject to find
-     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfNode}
+     * @param isInvisible  If isInvisible is true, it can go through Danger {@link TypeOfCell}
      * @param mode  Type of perception of harry vision
      * @param updateDetection  If true clear all detected nodes as danger
      * @return path as a list of coordinates or null if there is no path
      * @throws HarryIsCapturedException
      */
     @Override
-    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfNode subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
+    public ArrayList<Coordinate> findPath(Board board, Coordinate startPosition, TypeOfCell subjectToFind, boolean isInvisible, Perception mode, boolean updateDetection) throws HarryIsCapturedException {
         Queue<Coordinate> queue = new LinkedList<>();
         if (updateDetection) {
             detectedDangerNodes = new ArrayList<>();
@@ -505,8 +513,8 @@ class Coordinate implements Comparable<Coordinate>{
 
     /**
      * Creates coordinate in (X,Y)
-     * @param x  number of column
-     * @param y  number of row
+     * @param x number of column
+     * @param y number of row
      */
     public Coordinate(int x, int y) {
         X = x;
@@ -539,7 +547,7 @@ class Coordinate implements Comparable<Coordinate>{
 
     /**
      * Parse string in format of "[X,Y]"
-     * @param coordinatesInString  string to parse
+     * @param coordinatesInString string to parse
      * @return new Coordinate
      */
     public static Coordinate deserialize(String coordinatesInString) {
@@ -550,6 +558,11 @@ class Coordinate implements Comparable<Coordinate>{
         return new Coordinate(X, Y);
     }
 
+    /**
+     * Comparing two coordinates by euclidean distance
+     * @param o coordinate to compare
+     * @return a negative integer, zero, or a positive integer as this object is less than, equal to, or greater than the specified object.
+     */
     @Override
     public int compareTo(Coordinate o) {
         return Integer.compare(getX()*getY(), o.getX()*o.getY());
@@ -558,14 +571,32 @@ class Coordinate implements Comparable<Coordinate>{
 
 }
 
+/**
+ * Class for input and output all needed info
+ */
 class IO {
+    /**
+     * Standard console scanner
+     */
     private static final Scanner scanner = new Scanner(System.in);
-    
+
+    /**
+     * Print message and read 6 coordinates
+     * @return list with input coordinates
+     * @throws NumberFormatException in case of exception in parseCoordinate() method
+     */
     public static ArrayList<Coordinate> readCoordinates() throws NumberFormatException {
         printString("Input 6 coordinates in format [x1,y1] [x2,y2] ... ");
         return parseCoordinates(scanner.nextLine());
     }
 
+    /**
+     * Parse 6 coordinates from string in format of:
+     *  [X,Y] [X,Y] [X,Y] [X,Y] [X,Y] [X,Y] [X,Y]
+     * @param inputString string for parse
+     * @return list with coordinates
+     * @throws NumberFormatException if number of coordinates != 6 or coordinates are not in the correct format
+     */
     public static ArrayList<Coordinate> parseCoordinates(String inputString) throws NumberFormatException {
         String[] stringCoordinates = inputString.split(" ");
         ArrayList<Coordinate> coordinates = new ArrayList<>();
@@ -580,9 +611,13 @@ class IO {
         return coordinates;
     }
 
+    /**
+     * Print message and read answer from user
+     * @return instance of class perception with input atrribute
+     */
     public static Perception readHarryMode() {
         printString("Input mode of Harry vision:\n 1: Radius = 1\n 2: Radius = 2");
-        int answer = checkAnswerCorrection(scanner.nextLine(), 1, 2);
+        int answer = parseAnswer(scanner.nextLine(), 1, 2);
         if (answer == 1) {
             return new Perception(1);
         }
@@ -591,23 +626,43 @@ class IO {
         }
     }
 
+    /**
+     * Print message and read answer from user
+     * @return answer
+     */
     public static Integer readInputMode() {
         printString("Input mode:\n 1: Keyboard\n 2: Random");
-        return checkAnswerCorrection(scanner.nextLine(), 1, 2);
+        return parseAnswer(scanner.nextLine(), 1, 2);
     }
 
+    /**
+     * Print message and read answer from user
+     * @return answer
+     */
     public static boolean readBacktrackingMode() {
         printString("Backtracking finds the shortest path? (If not, it will find the first compatible)\n (1 - Yes, 2 - No)");
-        int answer = checkAnswerCorrection(scanner.nextLine(), 1, 2);
+        int answer = parseAnswer(scanner.nextLine(), 1, 2);
         return answer == 1;
     }
 
+    /**
+     * Print message and read max timeout
+     * @return  max timeout
+     */
     public static int readMaxTimeout() {
         printString("Input max timeout(in seconds) of backtracking. (Backtracking can work too long)");
         return scanner.nextInt();
     }
 
-    private static int checkAnswerCorrection(String answerString, int lowerBound, int upperBound) throws NumberFormatException{
+    /**
+     * Check input string if it is int and belongs to input interval
+     * @param answerString string to check
+     * @param lowerBound left bound of interval
+     * @param upperBound right bound of interval
+     * @return answer
+     * @throws NumberFormatException if the number is not in the interval
+     */
+    private static int parseAnswer(String answerString, int lowerBound, int upperBound) throws NumberFormatException{
         int answer = Integer.parseInt(answerString);
         if (answer < lowerBound || answer > upperBound) {
             throw new NumberFormatException("Illegal answer");
@@ -615,21 +670,36 @@ class IO {
         return answer;
     }
 
+    /**
+     * Add new line
+     */
     public static void newLine() {
         System.out.println();
     }
 
+    /**
+     * Print input string. This method is needed if in future we want to change output to file or smth else
+     * @param string string ot output
+     */
     public static void printString(String string) {
         System.out.println(string);
     }
-
 }
 
-enum TypeOfNode{
+/**
+ * Enumerate all types of cell.
+ * <p>DEFAULT - there is no any subject of agents</p>
+ * <p>START - start cell of Harry</p>
+ * <p>DANGER - cell in radius of Inspector's vision</p>
+ * <p>BOOK, CLOAK, EXIT, INSPECTOR - cell with these subjects respectively</p>
+ * <p>Each has associated number of danger: -1, 0, 1, 2.</p>
+ * It is needed for convenient comparison harry without cloak and with cloak
+ */
+enum TypeOfCell {
     DEFAULT(0), START(0), BOOK(-1), CLOAK(-1), EXIT(-1), DANGER(1), INSPECTOR(2);
     private final int danger;
 
-    TypeOfNode(int danger) {
+    TypeOfCell(int danger) {
         this.danger = danger;
     }
 
@@ -637,8 +707,13 @@ enum TypeOfNode{
         return danger;
     }
 
-    static String toString(TypeOfNode typeOfNode) {
-        switch (typeOfNode) {
+    /**
+     * Matching each type to string for output
+     * @param typeOfCell type to match
+     * @return string
+     */
+    static String toString(TypeOfCell typeOfCell) {
+        switch (typeOfCell) {
             case DEFAULT: return "-";
             case DANGER: return "D";
             case BOOK: return "B";
@@ -651,62 +726,92 @@ enum TypeOfNode{
     }
 }
 
+/**
+ * Contains set of {@link TypeOfCell} and methods to work with it
+ */
 class Cell{
-    private final TreeSet<TypeOfNode> typesOfNode;
+    private final TreeSet<TypeOfCell> typesOfNode;
 
     public Cell() {
         this.typesOfNode = new TreeSet<>();
     }
 
-    public TreeSet<TypeOfNode> getTypesOfNode() {
+    public TreeSet<TypeOfCell> getTypesOfNode() {
         return typesOfNode;
     }
 
-    public void addTypeOfNode(TypeOfNode typeOfNode) {
-        typesOfNode.add(typeOfNode);
+    public void addTypeOfNode(TypeOfCell typeOfCell) {
+        typesOfNode.add(typeOfCell);
     }
 
+    /**
+     * Check if the cell contains typesOfCell with danger less than 0
+     * @return true if contains, false if not
+     */
     public boolean containsCrucialElements() {
-        for (TypeOfNode typeOfNode : typesOfNode) {
-            if (typeOfNode.getDanger() == -1) {
+        for (TypeOfCell typeOfCell : typesOfNode) {
+            if (typeOfCell.getDanger() < 0) {
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Check if the cell is Inspector(cell with danger = 2)
+     * @return true if it's Inspector, false if not
+     */
     public boolean isInspector() {
-        for (TypeOfNode typeOfNode : typesOfNode) {
-            if (typeOfNode.getDanger() == 2) {
+        for (TypeOfCell typeOfCell : typesOfNode) {
+            if (typeOfCell.getDanger() == 2) {
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Check if the cell is Inspector or in radius of Inspector (cell with danger = 2 or = 1)
+     * @return true if it's Inspector or in radius of Inspector, false if not
+     */
     public boolean isDangerOrInspector() {
-        for (TypeOfNode typeOfNode : typesOfNode) {
-            if (typeOfNode.getDanger() == 1 || typeOfNode.getDanger() == 2) {
+        for (TypeOfCell typeOfCell : typesOfNode) {
+            if (typeOfCell.getDanger() == 1 || typeOfCell.getDanger() == 2) {
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Create string by appending all types to one string
+     * @return created string
+     */
     @Override
     public String toString() {
         StringBuilder output = new StringBuilder();
-        for (TypeOfNode typeOfNode : typesOfNode) {
-            output.append(TypeOfNode.toString(typeOfNode));
+        for (TypeOfCell typeOfCell : typesOfNode) {
+            output.append(TypeOfCell.toString(typeOfCell));
         }
-
         return output.toString();
     }
 }
 
+/**
+ * Contains all info about coordinates and cell in these coordinates
+ */
 class Board{
+    /**
+     * Matrix of cells
+     */
     private final ArrayList<ArrayList<Cell>> grid;
 
+    /**
+     * Creates board with input coordinates
+     * @param radiusOfStrongInspector strong = with greater radius
+     * @throws IllegalInputCoordinate if
+     * @throws HarryIsCapturedException
+     */
     public Board(int sizeOfGrid,
                  int radiusOfStrongInspector,
                  int radiusOfInspector,
@@ -717,45 +822,60 @@ class Board{
                  Coordinate cloakPosition,
                  Coordinate exitPosition) throws IllegalInputCoordinate, HarryIsCapturedException {
         grid = new ArrayList<>();
-
-        for (int row = 0; row < sizeOfGrid; row++) {
-            grid.add(new ArrayList<>());
-            for (int column = 0; column < sizeOfGrid; column++) {
-                grid.get(row).add(new Cell());
-            }
-        }
-
-        getCell(startPosition).addTypeOfNode(TypeOfNode.START);
-        getCell(bookPosition).addTypeOfNode(TypeOfNode.BOOK);
-        getCell(cloakPosition).addTypeOfNode(TypeOfNode.CLOAK);
-        if (!getCell(exitPosition).getTypesOfNode().contains(TypeOfNode.BOOK)) {
-            getCell(exitPosition).addTypeOfNode(TypeOfNode.EXIT);
-        }
-        else {
-            throw new IllegalInputCoordinate(TypeOfNode.BOOK, TypeOfNode.EXIT);
-        }
-
-        boolean isInvisible = startPosition.equals(cloakPosition);
-
-        addInspector(filthPosition, radiusOfStrongInspector, isInvisible);
-        addInspector(catPosition, radiusOfInspector, isInvisible);
-
-        for (int row = 0; row < sizeOfGrid; row++) {
-            for (int column = 0; column < sizeOfGrid; column++) {
-                Coordinate currentCoordinate = new Coordinate(row, column);
-                if (getCell(currentCoordinate).getTypesOfNode().isEmpty()) {
-                    getCell(currentCoordinate).addTypeOfNode(TypeOfNode.DEFAULT);
+        try {
+            // Initialization of grid
+            for (int row = 0; row < sizeOfGrid; row++) {
+                grid.add(new ArrayList<>());
+                for (int column = 0; column < sizeOfGrid; column++) {
+                    grid.get(row).add(new Cell());
                 }
             }
-        }
 
-        if (getCell(startPosition).isDangerOrInspector()) {
-            ArrayList<Coordinate> capturedPath = new ArrayList<>();
-            capturedPath.add(startPosition);
-            throw new HarryIsCapturedException();
+            getCell(startPosition).addTypeOfNode(TypeOfCell.START);
+            getCell(bookPosition).addTypeOfNode(TypeOfCell.BOOK);
+            getCell(cloakPosition).addTypeOfNode(TypeOfCell.CLOAK);
+
+            // Exit cell cannot be at the same coordinate as Book cell
+            if (!getCell(exitPosition).getTypesOfNode().contains(TypeOfCell.BOOK)) {
+                getCell(exitPosition).addTypeOfNode(TypeOfCell.EXIT);
+            } else {
+                throw new IllegalInputCoordinate(TypeOfCell.BOOK, TypeOfCell.EXIT);
+            }
+
+            // If Harry spawned with cloak
+            boolean isInvisible = startPosition.equals(cloakPosition);
+
+            addInspector(filthPosition, radiusOfStrongInspector, isInvisible);
+            addInspector(catPosition, radiusOfInspector, isInvisible);
+
+
+            // Initialize the remaining cells as DEFAULT
+            for (int row = 0; row < sizeOfGrid; row++) {
+                for (int column = 0; column < sizeOfGrid; column++) {
+                    Coordinate currentCoordinate = new Coordinate(row, column);
+                    if (getCell(currentCoordinate).getTypesOfNode().isEmpty()) {
+                        getCell(currentCoordinate).addTypeOfNode(TypeOfCell.DEFAULT);
+                    }
+                }
+            }
+
+            // If harry spawned inside the danger zone
+            if (getCell(startPosition).isDangerOrInspector()) {
+                throw new HarryIsCapturedException();
+            }
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalInputCoordinate("out of bounds of board");
         }
     }
 
+    /**
+     * Adding inspector to board and set cells as danger in input radius.
+     * @param coordinate coordinate of inspector
+     * @param radius radius of danger
+     * @param isInvisible for special condition when harry spawned with cloak, crucial elements can be spawned inside the danger zone
+     * @throws IllegalInputCoordinate if the in danger radius there is crucial elements
+     */
     public void addInspector(Coordinate coordinate, int radius, boolean isInvisible) throws IllegalInputCoordinate {
         for (int row = coordinate.getX() - radius; row <= coordinate.getX() + radius; row++) {
             for (int column = coordinate.getY() - radius; column <= coordinate.getY() + radius; column++) {
@@ -764,27 +884,36 @@ class Board{
                     continue;
                 }
                 if (getCell(currentCoordinate).containsCrucialElements() && !isInvisible) {
-                    throw new IllegalInputCoordinate(getCell(currentCoordinate).getTypesOfNode().first(), TypeOfNode.DANGER);
+                    throw new IllegalInputCoordinate(getCell(currentCoordinate).getTypesOfNode().first(), TypeOfCell.DANGER);
                 }
-                else if (!getCell(currentCoordinate).getTypesOfNode().contains(TypeOfNode.INSPECTOR)) {
-                    getCell(currentCoordinate).addTypeOfNode(TypeOfNode.DANGER);
+                else if (!getCell(currentCoordinate).getTypesOfNode().contains(TypeOfCell.INSPECTOR)) {
+                    getCell(currentCoordinate).addTypeOfNode(TypeOfCell.DANGER);
                 }
             }
         }
-        getCell(coordinate).getTypesOfNode().remove(TypeOfNode.DANGER);
-        getCell(coordinate).addTypeOfNode(TypeOfNode.INSPECTOR);
+        getCell(coordinate).getTypesOfNode().remove(TypeOfCell.DANGER); // for replacing danger with inspector
+        getCell(coordinate).addTypeOfNode(TypeOfCell.INSPECTOR);
     }
 
     public Cell getCell(Coordinate coordinate) {
         return grid.get(coordinate.getX()).get(coordinate.getY());
     }
 
+    /**
+     * Wrapper with empty list for toString(List) method
+     * @return board in string
+     */
     @Override
     public String toString() {
         ArrayList<Coordinate> path = new ArrayList<>();
         return toString(path);
     }
 
+    /**
+     * Created string from board and input path. Path is indicated as green numbers. Danger zones as red
+     * @param path path to view
+     * @return board with path in string
+     */
     public String toString(ArrayList<Coordinate> path) {
         final String ANSI_RED = "\u001B[31m";
         final String ANSI_RESET = "\u001B[0m";
@@ -807,7 +936,7 @@ class Board{
                     gridString.append(ANSI_WHITE);
                 }
 
-                if (path.contains(inverseCoordinate) && !getCell(inverseCoordinate).containsCrucialElements() && !getCell(inverseCoordinate).getTypesOfNode().contains(TypeOfNode.START)) {
+                if (path.contains(inverseCoordinate) && !getCell(inverseCoordinate).containsCrucialElements() && !getCell(inverseCoordinate).getTypesOfNode().contains(TypeOfCell.START)) {
                     gridString.append(path.indexOf(inverseCoordinate));
                     lengthOfNode = Integer.toString(path.indexOf(inverseCoordinate)).length();
                 }
@@ -829,38 +958,54 @@ class Board{
         return gridString.toString();
     }
 
+    /**
+     * @return length of one row (or column)
+     */
     public int size() {
         return grid.size();
     }
 }
 
+/**
+ * Manages work with I/O, finding paths and print them
+ */
 class Solution {
-    static int sizeOfGrid = 9;
-    static int filchRadius = 2;
-    static int catRadius = 1;
+    static final int sizeOfGrid = 9; // length of row (or column)
+    static final int filchRadius = 2; // radius of danger zone
+    static final int catRadius = 1;
 
+    /**
+     * Class for creating random input coordinates and vision of Harry
+     */
     static class RandomInput {
+        /**
+         * Upper bound for creating coordinates
+         */
         private static final int upperBound = Solution.sizeOfGrid;
         private static final Random random = new Random();
 
         public static ArrayList<Coordinate> getRandomInputCoordinates(){
             ArrayList<Coordinate> coordinates = new ArrayList<>();
 
+            // Save them before adding
             Coordinate filchCoordinate = getRandomCoordinates();
             Coordinate catCoordinate = getRandomCoordinates();
 
             Coordinate startCoordinate = getRandomCoordinates();
+            // Until not in the danger zone start coordinate generates
             while (isInDanger(startCoordinate, filchCoordinate, filchRadius) ||
                     isInDanger(startCoordinate, catCoordinate, catRadius)) {
                 startCoordinate = getRandomCoordinates();
             }
             coordinates.add(startCoordinate);
 
+            // Adding them after start coordinate
             coordinates.add(filchCoordinate);
             coordinates.add(catCoordinate);
 
             for (int i = 0; i < 3; i++) {
                 Coordinate currentCoordinate = getRandomCoordinates();
+                // Until not in the danger zone coordinate of crucial cell generates
                 while (isInDanger(currentCoordinate, filchCoordinate, filchRadius) ||
                         isInDanger(currentCoordinate, catCoordinate, catRadius)) {
                     currentCoordinate = getRandomCoordinates();
@@ -868,25 +1013,30 @@ class Solution {
                 coordinates.add(currentCoordinate);
             }
 
+            // Until not equal start and exit coordinates generates
             while (coordinates.get(5).equals(coordinates.get(3)) ||
                     isInDanger(coordinates.get(5), filchCoordinate, filchRadius) ||
                     isInDanger(coordinates.get(5), catCoordinate, catRadius)) {
                 coordinates.set(5, getRandomCoordinates());
             }
 
-            StringBuilder stringVersion = new StringBuilder();
-            for (Coordinate coordinate : coordinates) {
-                stringVersion.append("[").append(coordinate.getX()).append(",").append(coordinate.getY()).append("]").append(" ");
-            }
-            //IO.printString(stringVersion.toString());
-
             return coordinates;
         }
 
+        /**
+         * @return coordinate with random values from 0 to upperBound
+         */
         private static Coordinate getRandomCoordinates() {
             return new Coordinate(random.nextInt(upperBound), random.nextInt(upperBound));
         }
 
+        /**
+         * Check if generated coordinate in the danger zone
+         * @param currentCoordinate coordinate to check
+         * @param inspectorCoordinate coordinate of Inspector
+         * @param radius radius of Inspector's danger zone
+         * @return true if coordinate in the danger zone, false otherwise
+         */
         private static  boolean isInDanger(Coordinate currentCoordinate, Coordinate inspectorCoordinate, int radius) {
             for (int i = inspectorCoordinate.getX() - radius; i <= inspectorCoordinate.getX() + radius; i++) {
                 for (int j = inspectorCoordinate.getY() - filchRadius; j <= inspectorCoordinate.getY() + filchRadius; j++) {
@@ -895,7 +1045,6 @@ class Solution {
                     }
                 }
             }
-
             return false;
         }
     }
@@ -906,7 +1055,11 @@ class Solution {
     Coordinate cloakPosition;
     Coordinate bookPosition;
     Coordinate exitPosition;
-    HashMap<ArrayList<TypeOfNode>, Boolean> allScenarios;
+    /**
+     * Scenario - sequence of crucial cell to find. Example of scenario:
+     * <p> HARRY -> CLOAK -> BOOK -> EXIT</p>
+     */
+    HashMap<ArrayList<TypeOfCell>, Boolean> allScenarios;
 
     public Solution(ArrayList<Coordinate> inputCoordinates, Perception mode) throws IllegalArgumentException {
         this.harryPosition = inputCoordinates.get(0);
@@ -928,8 +1081,8 @@ class Solution {
 
         this.mode = mode;
         this.allScenarios = new HashMap<>();
-        ArrayList<ArrayList<TypeOfNode>> scenarios = getAllPossibleScenarios();
-        for (ArrayList<TypeOfNode> scenario : scenarios) {
+        ArrayList<ArrayList<TypeOfCell>> scenarios = getAllPossibleScenarios();
+        for (ArrayList<TypeOfCell> scenario : scenarios) {
             allScenarios.put(scenario, true);
         }
     }
@@ -941,7 +1094,7 @@ class Solution {
     public ArrayList<ArrayList<Coordinate>> findPath(FindPathInterface typeOfSearch) {
         ArrayList<ArrayList<Coordinate>> minPath = null;
         int minLength = Integer.MAX_VALUE;
-        for(ArrayList<TypeOfNode> scenario : allScenarios.keySet()) {
+        for(ArrayList<TypeOfCell> scenario : allScenarios.keySet()) {
             try {
                 ArrayList<ArrayList<Coordinate>> path = calculatePath(typeOfSearch, board, mode, scenario);
                 if (path != null) {
@@ -971,12 +1124,12 @@ class Solution {
         return minPath;
     }
 
-    private ArrayList<ArrayList<Coordinate>> calculatePath(FindPathInterface typeOfSearch, Board board, Perception mode, ArrayList<TypeOfNode> scenario) throws HarryIsCapturedException {
+    private ArrayList<ArrayList<Coordinate>> calculatePath(FindPathInterface typeOfSearch, Board board, Perception mode, ArrayList<TypeOfCell> scenario) throws HarryIsCapturedException {
         boolean isCloakInPath = false;
         ArrayList<ArrayList<Coordinate>> overallScenarioPath = new ArrayList<>();
         Coordinate currentCheckpoint = harryPosition;
 
-        for (TypeOfNode subjectToFind : scenario) {
+        for (TypeOfCell subjectToFind : scenario) {
             ArrayList<Coordinate> currentPath;
             if (scenario.indexOf(subjectToFind) == 0) {
                 currentPath = typeOfSearch.findPath(board, currentCheckpoint, subjectToFind, isCloakInPath, mode, true);
@@ -991,26 +1144,26 @@ class Solution {
             currentCheckpoint = currentPath.get(currentPath.size() - 1);
             overallScenarioPath.add(currentPath);
 
-            if (!isCloakInPath && subjectToFind == TypeOfNode.CLOAK) {
+            if (!isCloakInPath && subjectToFind == TypeOfCell.CLOAK) {
                 isCloakInPath = true;
             }
         }
         return overallScenarioPath;
     }
 
-    private ArrayList<ArrayList<TypeOfNode>> getAllPossibleScenarios() {
-        ArrayList<ArrayList<TypeOfNode>> allScenarios = new ArrayList<>();
+    private ArrayList<ArrayList<TypeOfCell>> getAllPossibleScenarios() {
+        ArrayList<ArrayList<TypeOfCell>> allScenarios = new ArrayList<>();
 
-        ArrayList<TypeOfNode> currentScenario = new ArrayList<>();
-        currentScenario.add(TypeOfNode.BOOK);
-        currentScenario.add(TypeOfNode.EXIT);
+        ArrayList<TypeOfCell> currentScenario = new ArrayList<>();
+        currentScenario.add(TypeOfCell.BOOK);
+        currentScenario.add(TypeOfCell.EXIT);
         allScenarios.add(new ArrayList<>(currentScenario));
 
-        currentScenario.add(currentScenario.indexOf(TypeOfNode.BOOK), TypeOfNode.CLOAK);
+        currentScenario.add(currentScenario.indexOf(TypeOfCell.BOOK), TypeOfCell.CLOAK);
         allScenarios.add(new ArrayList<>(currentScenario));
 
-        currentScenario.remove(TypeOfNode.CLOAK);
-        currentScenario.add(currentScenario.indexOf(TypeOfNode.EXIT), TypeOfNode.CLOAK);
+        currentScenario.remove(TypeOfCell.CLOAK);
+        currentScenario.add(currentScenario.indexOf(TypeOfCell.EXIT), TypeOfCell.CLOAK);
         allScenarios.add(new ArrayList<>(currentScenario));
 
         return allScenarios;
@@ -1176,25 +1329,25 @@ public class Main {
 
 
     public static void main(String[] args) throws ExecutionException, InterruptedException, FileNotFoundException {
-        String file1 = "samples/sampleForBacktrackingVar1";
-        String file2 = "samples/sampleForBFSVar1";
-        String file3 = "samples/sampleForBacktrackingVar2";
-        String file4 = "samples/sampleForBFSVar2";
-
-
-        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
-        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(true));
-        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
-
-        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
-        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
-        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
-
-        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
-        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
-        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
-        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
-
+//        String file1 = "samples/sampleForBacktrackingVar1";
+//        String file2 = "samples/sampleForBFSVar1";
+//        String file3 = "samples/sampleForBacktrackingVar2";
+//        String file4 = "samples/sampleForBFSVar2";
+//
+//
+//        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
+//        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(true));
+//        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
+//
+//        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
+//        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
+//        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
+//
+//        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
+//        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
+//        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
+//        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
+//
 
         try {
             int inputMode = IO.readInputMode();
