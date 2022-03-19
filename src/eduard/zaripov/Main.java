@@ -1344,24 +1344,24 @@ public class Main {
 
 
     public static void main(String[] args) throws ExecutionException, InterruptedException, FileNotFoundException {
-        String file1 = "samples/sampleForBacktrackingVar1";
-        String file2 = "samples/sampleForBFSVar1";
-        String file3 = "samples/sampleForBacktrackingVar2";
-        String file4 = "samples/sampleForBFSVar2";
-
-
-        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
-        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(false));
-        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
-
-        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
-        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
-        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
-
-        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
-        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
-        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
-        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
+//        String file1 = "samples/sampleForBacktrackingVar1";
+//        String file2 = "samples/sampleForBFSVar1";
+//        String file3 = "samples/sampleForBacktrackingVar2";
+//        String file4 = "samples/sampleForBFSVar2";
+//
+//
+//        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
+//        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(false));
+//        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
+//
+//        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
+//        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
+//        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
+//
+//        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
+//        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
+//        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
+//        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
 
 
         try {
