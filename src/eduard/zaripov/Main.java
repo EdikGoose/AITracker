@@ -1,5 +1,6 @@
 package eduard.zaripov;
 
+import java.awt.font.LineMetrics;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -612,7 +613,7 @@ class IO {
      */
     public static Perception readHarryMode() {
         printString("Input mode of Harry vision:\n 1: Radius = 1\n 2: Radius = 2");
-        int answer = parseAnswer(scanner.nextLine(), 1, 2);
+        int answer = parseAnswer(scanner.nextLine() , 2);
         if (answer == 1) {
             return new Perception(1);
         }
@@ -626,8 +627,8 @@ class IO {
      * @return answer
      */
     public static Integer readInputMode() {
-        printString("Input mode:\n 1: Keyboard\n 2: Random");
-        return parseAnswer(scanner.nextLine(), 1, 2);
+        printString("Input mode:\n 1: Keyboard\n 2: Random\n 3: Print statistics");
+        return parseAnswer(scanner.nextLine() , 3);
     }
 
     /**
@@ -636,7 +637,7 @@ class IO {
      */
     public static boolean readBacktrackingMode() {
         printString("Backtracking finds the shortest path? (If not, it will find the first compatible)\n (1 - Yes, 2 - No)");
-        int answer = parseAnswer(scanner.nextLine(), 1, 2);
+        int answer = parseAnswer(scanner.nextLine() , 2);
         return answer == 1;
     }
 
@@ -652,14 +653,13 @@ class IO {
     /**
      * Check input string if it is int and belongs to input interval
      * @param answerString string to check
-     * @param lowerBound left bound of interval
      * @param upperBound right bound of interval
      * @return answer
      * @throws NumberFormatException if the number is not in the interval
      */
-    private static int parseAnswer(String answerString, int lowerBound, int upperBound) throws NumberFormatException{
+    private static int parseAnswer(String answerString, int upperBound) throws NumberFormatException{
         int answer = Integer.parseInt(answerString);
-        if (answer < lowerBound || answer > upperBound) {
+        if (answer < 1 || answer > upperBound) {
             throw new NumberFormatException("Illegal answer");
         }
         return answer;
@@ -1214,10 +1214,19 @@ class Solution {
     }
 }
 
+/**
+ * Calculate statistics for samples. Parse data from file
+ */
 class StatisticsCalculator{
-    private static final int numberOfExperiments = 50;
+    /**
+     * For > 10, the execution will be greater than 5 min
+     */
+    private static final int numberOfExperiments = 1000;
 
-    static class ResultOfExperiment {
+    /**
+     * Nested class for convenient work with result of experiment
+     */
+    private static class ResultOfExperiment {
         long time;
         int numberOfSteps;
         boolean isWin;
@@ -1239,20 +1248,38 @@ class StatisticsCalculator{
         }
     }
 
-    static LinkedList<Solution> createSample(Perception mode) {
+    /**
+     * For input coordinates and mode creates numberOfExperiments samples
+     * @return sample as list
+     */
+    static LinkedList<Solution> createSample(LinkedList<ArrayList<Coordinate>> coordinates, Perception mode) {
         LinkedList<Solution> sample = new LinkedList<>();
-        for (int i = 0; i < numberOfExperiments; i++) {
+        for (ArrayList<Coordinate> currentCoordinate : coordinates) {
             try {
-                sample.add(new Solution(mode));
+                sample.add(new Solution(currentCoordinate, mode));
             } catch (IllegalInputCoordinate e) {
                 e.printStackTrace();
             }
         }
-
         return sample;
     }
 
+    /**
+     * Creates coordinates for samples
+     * @return coordinates as list
+     */
+    static LinkedList<ArrayList<Coordinate>> createCoordinatesForSample() {
+        LinkedList<ArrayList<Coordinate>> coordinates = new LinkedList<>();
+        for (int i = 0; i < numberOfExperiments; i++) {
+            coordinates.add(Solution.RandomInput.getRandomInputCoordinates());
+        }
+        return coordinates;
+    }
 
+    /**
+     * Starts experiments from sample and write results to file
+     * @param pathToFile file to write results
+     */
     static void startExperiments(LinkedList<Solution> sample, String pathToFile, int mode, FindPathInterface typeOfSearch) throws ExecutionException, InterruptedException {
         try {
             FileWriter writer = new FileWriter(pathToFile);
@@ -1283,23 +1310,31 @@ class StatisticsCalculator{
         }
     }
 
-    static double getMedianOfTime(LinkedList<ResultOfExperiment> results) {
+    private static double getMedianOfTime(LinkedList<ResultOfExperiment> results) {
         int sum = 0;
+        int numberOfWins = 0;
         for (ResultOfExperiment result : results) {
-            sum += result.time;
+            if (result.isWin) {
+                sum += result.time;
+                numberOfWins++;
+            }
         }
-        return sum / (double) results.size();
+        return sum / (double) numberOfWins;
     }
 
-    static double getMedianOfLength(LinkedList<ResultOfExperiment> results) {
+    private static double getMedianOfLength(LinkedList<ResultOfExperiment> results) {
         int numberOfSteps = 0;
+        int numberOfWins = 0;
         for (ResultOfExperiment result : results) {
-            numberOfSteps += result.numberOfSteps;
+            if (result.isWin) {
+                numberOfSteps += result.numberOfSteps;
+                numberOfWins++;
+            }
         }
-        return numberOfSteps / (double) results.size();
+        return numberOfSteps / (double) numberOfWins;
     }
 
-    static double getWinRate(LinkedList<ResultOfExperiment> results) {
+    private static double getWinRate(LinkedList<ResultOfExperiment> results) {
         int wins = 0;
         for (ResultOfExperiment result : results) {
             if (result.isWin) {
@@ -1309,7 +1344,32 @@ class StatisticsCalculator{
         return wins / (double) results.size();
     }
 
-    static LinkedList<ResultOfExperiment> parseResultsFromFile(String fileName) throws FileNotFoundException {
+    /**
+     * Print info about statistics from file:
+     * <p>Number of experiments</p>
+     * <p>Mean value of time execution</p>
+     * <p>Mean value of path length</p>
+     * <p>Win rate</p>
+     * @param nameOfFile file to read
+     */
+    static void printInfoAboutStatistics(String nameOfFile) throws FileNotFoundException {
+        LinkedList<ResultOfExperiment> results = parseResultsFromFile(nameOfFile);
+        IO.printString("Statistics from file: " + nameOfFile);
+        IO.printString("Number of experiments: " + results.size());
+        IO.printString("Mean value of time execution: " + getMedianOfTime(results) + " ms");
+        IO.printString("Mean value of path length: " + getMedianOfLength(results) + " steps");
+        IO.printString("Win rate: " + getWinRate(results) * 100 + "%");
+    }
+
+    /**
+     * Parse data from file in format of:
+     * <p>X Y Z</p>
+     * where X=length, Y=time, Z=win or lose
+     * <p>Comments in file starts from #</p>
+     * @param fileName file to parse
+     * @return parsed results as list
+     */
+    private static LinkedList<ResultOfExperiment> parseResultsFromFile(String fileName) throws FileNotFoundException {
         Scanner scanner = new Scanner(new FileReader(fileName));
         LinkedList<StatisticsCalculator.ResultOfExperiment> results = new LinkedList<>();
         while (scanner.hasNext()) {
@@ -1323,7 +1383,6 @@ class StatisticsCalculator{
         return results;
     }
 }
-
 
 public class Main {
     private static void printInfoAboutPath(Solution solution, ArrayList<ArrayList<Coordinate>> path, String nameOfAlgorithm, long elapsedTime) {
@@ -1341,37 +1400,23 @@ public class Main {
         }
     }
 
-
-
     public static void main(String[] args) throws ExecutionException, InterruptedException, FileNotFoundException {
-//        String file1 = "samples/sampleForBacktrackingVar1";
-//        String file2 = "samples/sampleForBFSVar1";
-//        String file3 = "samples/sampleForBacktrackingVar2";
-//        String file4 = "samples/sampleForBFSVar2";
-//
-//
-//        LinkedList<Solution> sample1 = StatisticsCalculator.createSample(new Perception(1));
-//        StatisticsCalculator.startExperiments(sample1, file1, 1, new Backtracking(false));
-//        StatisticsCalculator.startExperiments(sample1, file2, 1, new BFS());
-//
-//        LinkedList<Solution> sample2 = StatisticsCalculator.createSample(new Perception(2));
-//        StatisticsCalculator.startExperiments(sample2, file3, 2, new Backtracking(false));
-//        StatisticsCalculator.startExperiments(sample2, file4, 2, new BFS());
-//
-//        LinkedList<StatisticsCalculator.ResultOfExperiment> results1 = StatisticsCalculator.parseResultsFromFile(file1);
-//        LinkedList<StatisticsCalculator.ResultOfExperiment> results2 = StatisticsCalculator.parseResultsFromFile(file2);
-//        System.out.println(StatisticsCalculator.getMedianOfTime(results1));
-//        System.out.println(StatisticsCalculator.getMedianOfTime(results2));
-
-
         try {
             int inputMode = IO.readInputMode();
             Solution solution;
 
             if (inputMode == 1) {
                 solution = new Solution(IO.readCoordinates(), IO.readHarryMode());
-            } else {
+            } else if (inputMode == 2) {
                 solution = new Solution(IO.readHarryMode());
+            }
+            else {
+                StatisticsCalculator.printInfoAboutStatistics("samples/sampleForBacktrackingVar1");
+                StatisticsCalculator.printInfoAboutStatistics("samples/sampleForBFSVar1");
+                StatisticsCalculator.printInfoAboutStatistics("samples/sampleForBacktrackingVar2");
+                StatisticsCalculator.printInfoAboutStatistics("samples/sampleForBFSVar2");
+                solution = new Solution(new Perception(1));
+                main(null);
             }
 
             boolean isBacktrackingFindShortestPath = IO.readBacktrackingMode();
