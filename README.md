@@ -1,4 +1,4 @@
-# AI Assignment 1: Book Finding
+# Real implementations of A*, DFC and backtracking algorithms in case of simple game
 
 # PEAS characteristics
 
