@@ -46,7 +46,7 @@ There will be path by two algorithms.
 
 For better understanding output in console, this is an example from assignment text:
 
-![alt type](pic/board.png)
+![alt text](pic/board.png)
 
 ```java
 											C   D   D   D   -   -   -   -   -   
